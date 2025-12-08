@@ -53,13 +53,6 @@ export function QRScanner() {
     loadJsQR()
   }, [])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopScanning()
-    }
-  }, [])
-
   const playBeep = useCallback(() => {
     if (!soundEnabled) return
     try {
@@ -166,33 +159,57 @@ export function QRScanner() {
 
   const startScanning = useCallback(async () => {
     if (isScanning) return
+    
+    console.log("Starting camera...")
+    setCameraError(null)
 
     try {
-      setCameraError(null)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-      })
+      const constraints = {
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      }
+      
+      console.log("Requesting camera with constraints:", constraints)
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      console.log("Got stream:", stream)
 
       streamRef.current = stream
       if (videoRef.current) {
+        console.log("Setting video srcObject...")
         videoRef.current.srcObject = stream
+        
         videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch(() => {})
+          console.log("Video metadata loaded, playing...")
+          videoRef.current?.play().catch((e) => {
+            console.error("Play error:", e)
+          })
           setIsScanning(true)
+          console.log("Scan state set to true, starting scan loop")
           scanLoopRef.current = requestAnimationFrame(scanQRCode)
+        }
+        
+        videoRef.current.onerror = (e) => {
+          console.error("Video error:", e)
+          setCameraError("Videofeil")
         }
       }
     } catch (err: any) {
       const message = err?.message || "Unable to access camera"
-      console.error("Camera error:", message)
+      console.error("Camera error:", err)
 
       let userMessage = "Kamerafeil"
       if (message.toLowerCase().includes("permission") || message.toLowerCase().includes("denied")) {
         userMessage = "Kameratillatelse avvist"
       } else if (message.toLowerCase().includes("no camera") || message.toLowerCase().includes("notfound")) {
         userMessage = "Ingen kamera funnet"
+      } else if (message.toLowerCase().includes("not supported")) {
+        userMessage = "Kamera ikke støttet"
       }
 
+      console.error("User message:", userMessage)
       setCameraError(userMessage)
     }
   }, [isScanning, scanQRCode])
@@ -215,6 +232,13 @@ export function QRScanner() {
     setIsScanning(false)
     setCameraError(null)
   }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopScanning()
+    }
+  }, [stopScanning])
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
