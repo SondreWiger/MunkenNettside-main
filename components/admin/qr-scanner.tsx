@@ -85,13 +85,6 @@ export function QRScanner() {
   const startCamera = async () => {
     try {
       setCameraError("")
-      
-      // Cancel any previous animation frame
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-        animationRef.current = null
-      }
-      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
@@ -126,12 +119,14 @@ export function QRScanner() {
     }
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current)
+      animationRef.current = null
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
     setIsCameraActive(false)
     lastDetectionRef.current = ""
+    detectionLockRef.current = false
   }
 
   const verifyQR = async (qrCode: string) => {
@@ -390,14 +385,29 @@ export function QRScanner() {
                 {mode === "camera" && (
                   <Button
                     onClick={async () => {
-                      // Fully reset detection state and result
+                      // Reset all state
                       setResult(null)
                       lastDetectionRef.current = ""
                       detectionLockRef.current = false
+                      setIsLoading(false)
                       
-                      // Stop and restart camera for fresh scanning
-                      stopCamera()
-                      await new Promise(resolve => setTimeout(resolve, 500))
+                      // Stop any existing streams
+                      if (streamRef.current) {
+                        streamRef.current.getTracks().forEach(track => track.stop())
+                        streamRef.current = null
+                      }
+                      
+                      // Cancel animation frame
+                      if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current)
+                        animationRef.current = null
+                      }
+                      
+                      // Small delay to ensure cleanup
+                      await new Promise(resolve => setTimeout(resolve, 100))
+                      
+                      // Restart fresh
+                      setIsCameraActive(false)
                       startCamera()
                     }}
                     size="lg"
