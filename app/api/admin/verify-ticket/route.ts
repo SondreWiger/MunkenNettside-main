@@ -8,6 +8,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { qrData, bookingReference } = body
 
+    console.log("[Verify Ticket] Received request with:", { 
+      hasQrData: !!qrData, 
+      bookingReference,
+      qrDataLength: qrData?.length
+    })
+
     // Get user from server client (has session context)
     const serverSupabase = await getSupabaseServerClient()
     const {
@@ -105,6 +111,8 @@ export async function POST(request: NextRequest) {
       }
     } else if (bookingReference) {
       // Look up by reference
+      console.log("[Verify Ticket] Looking up booking by reference:", bookingReference)
+      
       const { data, error } = await supabase
         .from("bookings")
         .select(
@@ -118,6 +126,12 @@ export async function POST(request: NextRequest) {
         )
         .eq("booking_reference", bookingReference)
         .single()
+
+      console.log("[Verify Ticket] Query result:", { 
+        found: !!data, 
+        error: error?.message,
+        dataId: data?.id
+      })
 
       if (error || !data) {
         return NextResponse.json(
@@ -174,11 +188,12 @@ export async function POST(request: NextRequest) {
     // Check if already checked in
     const alreadyCheckedIn = booking.status === "used" || !!booking.checked_in_at
 
-    // Get seats
-    const { data: seats } = await supabase
-      .from("seats")
-      .select("section, row, number")
-      .in("id", booking.seat_ids || [])
+    // Get seats - they're stored as JSON objects in seat_ids column, not IDs
+    const seats = (booking.seat_ids || []).map((seat: any) => ({
+      section: seat.section,
+      row: seat.row,
+      number: seat.number,
+    }))
 
     // Check show date
     const showDate = new Date(booking.show?.show_datetime || new Date())
