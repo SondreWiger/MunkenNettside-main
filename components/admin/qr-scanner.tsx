@@ -181,9 +181,14 @@ export function QRScanner() {
     try {
       setCameraError(null)
       
-      // Create scanner with unique ID
-      const scannerId = `qr-reader-${Date.now()}`
-      containerRef.current.id = scannerId
+      // Ensure container has an ID
+      const scannerId = "qr-reader-scanner"
+      if (!containerRef.current.id) {
+        containerRef.current.id = scannerId
+      }
+      
+      // Clear any previous content
+      containerRef.current.innerHTML = ""
       
       // Create a new scanner instance
       scannerRef.current = new Html5Qrcode(scannerId)
@@ -447,6 +452,7 @@ export function QRScanner() {
             {/* Camera Feed Container */}
             <div className="flex-1 relative flex items-center justify-center overflow-hidden">
               <div
+                id="qr-reader-scanner"
                 ref={containerRef}
                 className="absolute inset-0 w-full h-full"
               />
