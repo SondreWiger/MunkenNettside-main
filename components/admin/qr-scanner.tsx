@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Html5Qrcode } from "html5-qrcode"
+import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode"
 import { Camera, Keyboard, CheckCircle, XCircle, AlertTriangle, Loader2, Users, Scan, AlertCircle, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -181,99 +181,47 @@ export function QRScanner() {
     try {
       setCameraError(null)
       
-      // Ensure container has an ID
-      const scannerId = "qr-reader-scanner"
-      if (!containerRef.current.id) {
-        containerRef.current.id = scannerId
-      }
-      
-      // Clear any previous content
-      containerRef.current.innerHTML = ""
-      
-      // Create a new scanner instance
-      scannerRef.current = new Html5Qrcode(scannerId)
-
-      // Get available cameras
-      let cameras: any[] | null = null
-      
-      try {
-        cameras = await Html5Qrcode.getCameras()
-      } catch (cameraErr) {
-        const cameraErrMsg = cameraErr instanceof Error ? cameraErr.message : String(cameraErr)
-        console.error("[QR Scanner] Camera enumeration error:", cameraErrMsg)
-        
-        let userMessage = "Kamera ikke tilgjengelig"
-        
-        if (cameraErrMsg.toLowerCase().includes("permission") || 
-            cameraErrMsg.toLowerCase().includes("denied") ||
-            cameraErrMsg.toLowerCase().includes("notallowed")) {
-          userMessage = "📱 Kameratillatelse avvist.\n\nLøsning:\n1. Klikk på kameraikon i adresselinjen\n2. Velg \"Tillat\"\n3. Prøv igjen"
-        } else if (cameraErrMsg.toLowerCase().includes("no camera") || 
-                   cameraErrMsg.toLowerCase().includes("notfound")) {
-          userMessage = "❌ Ingen kamera funnet på enheten.\n\nBruk manuell inngang i stedet."
-        } else if (cameraErrMsg.toLowerCase().includes("secure") || 
-                   cameraErrMsg.toLowerCase().includes("https")) {
-          userMessage = "🔒 Krever HTTPS eller localhost.\n\nBruk manuell inngang i stedet."
-        }
-        
-        throw new Error(userMessage)
-      }
-
-      if (!cameras || cameras.length === 0) {
-        throw new Error("Ingen kameraer tilgjengelig på enheten.\n\nBruk manuell inngang i stedet.")
-      }
-
-      // Prefer back/rear camera
-      let selectedCamera = cameras[0]
-      for (const camera of cameras) {
-        const label = camera.label.toLowerCase()
-        if (label.includes("back") || label.includes("rear") || label.includes("environment") || label.includes("bakvend")) {
-          selectedCamera = camera
-          break
-        }
-      }
-
-      console.log("[QR Scanner] Using camera:", selectedCamera.label)
-
-      // Start scanner with optimized settings for faster detection
-      await scannerRef.current.start(
-        selectedCamera.id,
+      // Use Html5QrcodeScanner for better DOM handling
+      const qrScanner = new Html5QrcodeScanner(
+        "qr-reader-scanner",
         {
           fps: 30,
           qrbox: { width: 280, height: 280 },
           aspectRatio: 1.0,
+          facingMode: "environment", // Back camera
           disableFlip: false,
         } as any,
+        false // verbose mode off
+      )
+
+      scannerRef.current = qrScanner as any
+
+      await qrScanner.render(
         async (decodedText) => {
           console.log("[QR Scanner] QR decoded:", decodedText.substring(0, 50) + "...")
           await handleScan(decodedText)
         },
         (errorMessage) => {
-          // Silently ignore scan frame errors
-        },
+          // Ignore frame errors
+        }
       )
 
       cameraStartedRef.current = true
       setIsScanning(true)
       
-      // Try to enable torch capability
-      try {
-        const constraints = { video: { facingMode: "environment" } }
-        const stream = await navigator.mediaDevices.getUserMedia(constraints)
-        const track = stream.getVideoTracks()[0]
-        const capabilities = track.getCapabilities?.() as any
-        if (capabilities?.torch) {
-          setTorchEnabled(false)
-        }
-      } catch {}
-      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error("[QR Scanner] Startup error:", errorMessage)
 
-      const userMessage = errorMessage.includes("\n") 
-        ? errorMessage 
-        : `❌ Kamerafeil:\n${errorMessage}`
+      let userMessage = errorMessage
+      if (errorMessage.toLowerCase().includes("permission") || 
+          errorMessage.toLowerCase().includes("denied") ||
+          errorMessage.toLowerCase().includes("notallowed")) {
+        userMessage = "📱 Kameratillatelse avvist.\n\nLøsning:\n1. Klikk på kameraikon i adresselinjen\n2. Velg \"Tillat\"\n3. Prøv igjen"
+      } else if (errorMessage.toLowerCase().includes("no camera") || 
+                 errorMessage.toLowerCase().includes("notfound")) {
+        userMessage = "❌ Ingen kamera funnet på enheten.\n\nBruk manuell inngang i stedet."
+      }
 
       setCameraError(userMessage)
       setResult({
@@ -286,12 +234,12 @@ export function QRScanner() {
   const stopScanner = async () => {
     if (scannerRef.current && cameraStartedRef.current) {
       try {
-        await scannerRef.current.stop()
+        await (scannerRef.current as any).pause()
         cameraStartedRef.current = false
         setIsScanning(false)
         setCameraError(null)
       } catch (err) {
-        console.error("[v0] Error stopping scanner:", err)
+        console.error("[QR Scanner] Error stopping scanner:", err)
       }
     }
   }
