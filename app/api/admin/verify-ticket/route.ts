@@ -6,12 +6,13 @@ import { verifyQRSignature } from "@/lib/utils/booking"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { qrData, bookingReference } = body
+    let { qrData, bookingReference } = body
 
     console.log("[Verify Ticket] Received request with:", { 
       hasQrData: !!qrData, 
       bookingReference,
-      qrDataLength: qrData?.length
+      qrDataLength: qrData?.length,
+      qrDataPreview: qrData?.substring(0, 100)
     })
 
     // Get user from server client (has session context)
@@ -60,20 +61,50 @@ export async function POST(request: NextRequest) {
     let booking: BookingData | null = null
 
     if (qrData) {
-      // Parse QR data
+      // Try to parse QR data as JSON with signature first
+      let isSignedQR = false
+      let bookingId: string | null = null
+
       try {
         const parsed = JSON.parse(qrData)
-
-        // Verify signature
-        const { signature, ...dataWithoutSignature } = parsed
-        if (!verifyQRSignature(dataWithoutSignature, signature)) {
-          return NextResponse.json({
-            status: "error",
-            message: "Ugyldig QR-kode - signaturen stemmer ikke",
+        
+        // Check if it has signature and booking_id (signed QR format)
+        if (parsed.booking_id && parsed.signature) {
+          isSignedQR = true
+          
+          // Verify signature
+          const { signature, ...dataWithoutSignature } = parsed
+          console.log("[Verify Ticket] Verifying signed QR with:", {
+            booking_id: dataWithoutSignature.booking_id,
+            reference: dataWithoutSignature.reference,
+            hasSignature: !!signature,
+            signaturePreview: signature?.substring(0, 16)
           })
+          
+          if (!verifyQRSignature(dataWithoutSignature, signature)) {
+            console.error("[Verify Ticket] Signature verification FAILED for booking:", dataWithoutSignature.booking_id)
+            return NextResponse.json({
+              status: "error",
+              message: "Ugyldig QR-kode - signaturen stemmer ikke",
+            })
+          }
+          
+          console.log("[Verify Ticket] Signature verification SUCCESS")
+          bookingId = parsed.booking_id
         }
+      } catch (parseError) {
+        // Not JSON - treat as plain booking reference
+        console.log("QR data is not JSON, treating as booking reference:", parseError)
+      }
 
-        // Get booking
+      // If not a signed QR, treat it as a booking reference
+      if (!isSignedQR) {
+        console.log("[Verify Ticket] QR data treated as booking reference:", qrData)
+        bookingReference = qrData.trim().toUpperCase()
+      }
+
+      // Get booking by ID or reference
+      if (bookingId) {
         const { data, error } = await supabase
           .from("bookings")
           .select(
@@ -85,7 +116,7 @@ export async function POST(request: NextRequest) {
             )
           `,
           )
-          .eq("id", parsed.booking_id)
+          .eq("id", bookingId)
           .single()
 
         if (error || !data) {
@@ -99,15 +130,6 @@ export async function POST(request: NextRequest) {
         }
 
         booking = data as BookingData
-      } catch (qrError) {
-        console.error("QR parsing error:", qrError)
-        return NextResponse.json(
-          {
-            status: "error",
-            message: "Kunne ikke lese QR-koden",
-          },
-          { status: 400 },
-        )
       }
     } else if (bookingReference) {
       // Look up by reference
