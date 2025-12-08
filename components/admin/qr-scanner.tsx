@@ -380,18 +380,20 @@ export function QRScanner() {
               )}
 
               <div className="flex gap-2 pt-4">
-                <Button onClick={() => setResult(null)} size="lg" className="flex-1">
-                  Continue
-                </Button>
                 {mode === "camera" && (
                   <Button
                     onClick={() => {
+                      // Fully reset detection state and result
                       setResult(null)
-                      if (!isCameraActive) startCamera()
+                      lastDetectionRef.current = ""
+                      detectionLockRef.current = false
+                      // Restart camera for fresh scanning
+                      if (!isCameraActive) {
+                        startCamera()
+                      }
                     }}
                     size="lg"
-                    variant="outline"
-                    className="flex-1"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
                   >
                     Scan Next
                   </Button>

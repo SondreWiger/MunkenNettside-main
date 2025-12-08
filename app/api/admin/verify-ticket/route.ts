@@ -61,12 +61,14 @@ export async function POST(request: NextRequest) {
     let booking: BookingData | null = null
 
     if (qrData) {
+      console.log("[Verify Ticket] Processing QR data, length:", qrData.length)
       // Try to parse QR data as JSON with signature first
       let isSignedQR = false
       let bookingId: string | null = null
 
       try {
         const parsed = JSON.parse(qrData)
+        console.log("[Verify Ticket] QR parsed as JSON, has booking_id:", !!parsed.booking_id, "has signature:", !!parsed.signature)
         
         // Check if it has signature and booking_id (signed QR format)
         if (parsed.booking_id && parsed.signature) {
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (parseError) {
         // Not JSON - treat as plain booking reference
-        console.log("QR data is not JSON, treating as booking reference:", parseError)
+        console.log("[Verify Ticket] QR data is not JSON, treating as booking reference:", parseError)
       }
 
       // If not a signed QR, treat it as a booking reference
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
 
       // Get booking by ID or reference
       if (bookingId) {
+        console.log("[Verify Ticket] Looking up booking by ID:", bookingId)
         const { data, error } = await supabase
           .from("bookings")
           .select(
@@ -119,7 +122,8 @@ export async function POST(request: NextRequest) {
           .eq("id", bookingId)
           .single()
 
-        if (error || !data) {
+        if (error) {
+          console.error("[Verify Ticket] ID lookup error:", error.message)
           return NextResponse.json(
             {
               status: "error",
@@ -129,6 +133,18 @@ export async function POST(request: NextRequest) {
           )
         }
 
+        if (!data) {
+          console.error("[Verify Ticket] No booking found with ID:", bookingId)
+          return NextResponse.json(
+            {
+              status: "error",
+              message: "Bestilling ikke funnet",
+            },
+            { status: 404 },
+          )
+        }
+
+        console.log("[Verify Ticket] Booking found by ID:", data.id, "reference:", data.booking_reference)
         booking = data as BookingData
       }
     } else if (bookingReference) {
@@ -149,13 +165,8 @@ export async function POST(request: NextRequest) {
         .eq("booking_reference", bookingReference)
         .single()
 
-      console.log("[Verify Ticket] Query result:", { 
-        found: !!data, 
-        error: error?.message,
-        dataId: data?.id
-      })
-
-      if (error || !data) {
+      if (error) {
+        console.error("[Verify Ticket] Reference lookup error:", error.message, "looking for:", bookingReference)
         return NextResponse.json(
           {
             status: "error",
@@ -165,8 +176,21 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      if (!data) {
+        console.error("[Verify Ticket] No booking found with reference:", bookingReference)
+        return NextResponse.json(
+          {
+            status: "error",
+            message: "Bestilling ikke funnet",
+          },
+          { status: 404 },
+        )
+      }
+
+      console.log("[Verify Ticket] Booking found by reference:", data.id, "reference:", data.booking_reference)
       booking = data as BookingData
     } else {
+      console.error("[Verify Ticket] No QR data or booking reference provided")
       return NextResponse.json(
         {
           status: "error",
