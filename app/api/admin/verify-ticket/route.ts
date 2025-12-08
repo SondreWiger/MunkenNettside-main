@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/supabase/server"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
-import { verifyQRSignature } from "@/lib/utils/booking"
+import { verifyQRSignature, generateQRSignature } from "@/lib/utils/booking"
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,15 +76,20 @@ export async function POST(request: NextRequest) {
           
           // Verify signature
           const { signature, ...dataWithoutSignature } = parsed
+          const expectedSignature = generateQRSignature(dataWithoutSignature)
           console.log("[Verify Ticket] Verifying signed QR with:", {
             booking_id: dataWithoutSignature.booking_id,
             reference: dataWithoutSignature.reference,
-            hasSignature: !!signature,
-            signaturePreview: signature?.substring(0, 16)
+            receivedSignature: signature?.substring(0, 16),
+            expectedSignature: expectedSignature?.substring(0, 16),
+            match: signature === expectedSignature
           })
           
           if (!verifyQRSignature(dataWithoutSignature, signature)) {
-            console.error("[Verify Ticket] Signature verification FAILED for booking:", dataWithoutSignature.booking_id)
+            console.error("[Verify Ticket] Signature verification FAILED")
+            console.error("[Verify Ticket] Data signed:", JSON.stringify(dataWithoutSignature).substring(0, 200))
+            console.error("[Verify Ticket] Expected sig:", expectedSignature)
+            console.error("[Verify Ticket] Received sig:", signature)
             return NextResponse.json({
               status: "error",
               message: "Ugyldig QR-kode - signaturen stemmer ikke",
