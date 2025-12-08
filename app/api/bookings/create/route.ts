@@ -91,19 +91,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create QR code data
-    const showTitle = show.title || show.ensemble?.title || "Forestilling"
-    const qrData = createQRCodeData(
-      "", // Will be updated after insert
-      bookingReference,
-      showId,
-      showTitle,
-      show.show_datetime,
-      customerName,
-      seats.map((s: any) => ({ section: s.section, row: String.fromCharCode(65 + s.row), number: s.col + 1 })),
-    )
-
-    // Create booking - store seats as JSON array since we don't have UUIDs
+    // Create booking without QR data first (we'll add it after we have the booking ID)
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
@@ -112,7 +100,7 @@ export async function POST(request: NextRequest) {
         seat_ids: seats as any, // Pass seats array directly to JSONB column
         total_amount_nok: totalAmount,
         booking_reference: bookingReference,
-        qr_code_data: JSON.stringify(qrData),
+        qr_code_data: null, // Will be set after insert
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone || null,
@@ -143,10 +131,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update QR data with booking ID
-    const updatedQrData = { ...qrData, booking_id: booking.id }
-    const qrCodeDataString = JSON.stringify(updatedQrData)
+    // NOW create QR code data WITH the booking ID
+    const showTitle = show.title || show.ensemble?.title || "Forestilling"
+    const qrData = createQRCodeData(
+      booking.id, // Use the actual booking ID from database
+      bookingReference,
+      showId,
+      showTitle,
+      show.show_datetime,
+      customerName,
+      seats.map((s: any) => ({ section: s.section, row: String.fromCharCode(65 + s.row), number: s.col + 1 })),
+    )
 
+    const qrCodeDataString = JSON.stringify(qrData)
+    console.log("[v0] QR data created with signature:", qrData.signature.substring(0, 16) + "...")
+
+    // Update booking with QR data
     await supabase.from("bookings").update({ qr_code_data: qrCodeDataString }).eq("id", booking.id)
 
     // No longer update old seats table - seats are generated dynamically from venue config
