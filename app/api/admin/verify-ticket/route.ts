@@ -154,10 +154,52 @@ export async function POST(request: NextRequest) {
 
         console.log("[Verify Ticket] Booking found by ID:", data.id, "reference:", data.booking_reference)
         booking = data as BookingData
+      } else if (bookingReference) {
+        // QR data was not signed JSON, so look up by reference
+        console.log("[Verify Ticket] Looking up booking by reference (from QR data):", bookingReference)
+        
+        const { data, error } = await supabase
+          .from("bookings")
+          .select(
+            `
+            *,
+            show:shows(
+              *,
+              ensemble:ensembles(*)
+            )
+          `,
+          )
+          .eq("booking_reference", bookingReference)
+          .single()
+
+        if (error) {
+          console.error("[Verify Ticket] Reference lookup error:", error.message, "looking for:", bookingReference)
+          return NextResponse.json(
+            {
+              status: "error",
+              message: "Bestilling ikke funnet",
+            },
+            { status: 404 },
+          )
+        }
+
+        if (!data) {
+          console.error("[Verify Ticket] No booking found with reference:", bookingReference)
+          return NextResponse.json(
+            {
+              status: "error",
+              message: "Bestilling ikke funnet",
+            },
+            { status: 404 },
+          )
+        }
+
+        console.log("[Verify Ticket] Booking found by reference:", data.id, "reference:", data.booking_reference)
+        booking = data as BookingData
       }
     } else if (bookingReference) {
-      // Look up by reference
-      console.log("[Verify Ticket] Looking up booking by reference:", bookingReference)
+      // Manual entry - look up by reference directly
+      console.log("[Verify Ticket] Looking up booking by reference (manual entry):", bookingReference)
       
       const { data, error } = await supabase
         .from("bookings")
