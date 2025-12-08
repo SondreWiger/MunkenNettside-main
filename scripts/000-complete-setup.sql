@@ -857,6 +857,61 @@ ON CONFLICT DO NOTHING;
 --    - Managing bookings and recordings
 --
 -- =============================================
+-- FUNCTION TO REGENERATE QR SIGNATURES
+-- =============================================
+-- This function regenerates QR code signatures for all bookings
+-- Run this after deploying the QR signature fix to ensure all existing bookings have valid signatures
+CREATE OR REPLACE FUNCTION public.regenerate_qr_signatures()
+RETURNS void AS $$
+DECLARE
+  v_booking_record RECORD;
+  v_qr_data JSONB;
+  v_data_without_sig JSONB;
+  v_qr_secret TEXT;
+  v_signature TEXT;
+BEGIN
+  -- Get the QR signing secret from environment (this must match QR_SIGNING_SECRET)
+  -- NOTE: In production, this should be set as a Supabase variable
+  v_qr_secret := current_setting('app.qr_signing_secret', true);
+  IF v_qr_secret IS NULL THEN
+    RAISE WARNING 'QR_SIGNING_SECRET not configured. Using default (INSECURE).';
+    v_qr_secret := 'default-secret-change-in-production';
+  END IF;
+
+  FOR v_booking_record IN SELECT * FROM public.bookings WHERE qr_code_data IS NOT NULL
+  LOOP
+    v_qr_data := v_booking_record.qr_code_data;
+    
+    -- Remove signature field to create data for signing
+    v_data_without_sig := v_qr_data - 'signature';
+    
+    -- Generate new signature using HMAC-SHA256
+    v_signature := encode(
+      hmac(
+        v_data_without_sig::text,
+        v_qr_secret,
+        'sha256'
+      ),
+      'hex'
+    );
+    
+    -- Update booking with new QR data including signature
+    UPDATE public.bookings 
+    SET qr_code_data = jsonb_set(v_qr_data, '{signature}', to_jsonb(v_signature))
+    WHERE id = v_booking_record.id;
+  END LOOP;
+
+  RAISE NOTICE 'QR signatures regenerated for all bookings';
+END;
+$$ LANGUAGE plpgsql;
+
+-- Execute the function to regenerate all signatures
+-- IMPORTANT: This requires qr_signing_secret to be set as Supabase variable
+-- For now, run this manually after setting the environment variable
+-- SELECT public.regenerate_qr_signatures();
+
+-- =============================================
+
 -- =============================================
 -- ALTER BOOKINGS TABLE - CHANGE SEAT_IDS TO JSONB
 -- =============================================
