@@ -47,9 +47,9 @@ export function QRScanner() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (scannerRef.current) {
+      if (scannerRef.current && scannerRenderedRef.current) {
         try {
-          scannerRef.current.clear()
+          scannerRef.current.clear?.()
         } catch (err) {
           console.debug("[QR Scanner] Cleanup error:", err)
         }
