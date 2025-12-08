@@ -131,6 +131,14 @@ export function QRScanner() {
 
   const verifyQR = async (qrCode: string) => {
     setIsLoading(true)
+    console.log("[QR Scanner] Scanned QR code:")
+    console.log("[QR Scanner] Length:", qrCode.length)
+    console.log("[QR Scanner] First 200 chars:", qrCode.substring(0, 200))
+    console.log("[QR Scanner] Device:", {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+    })
+    
     try {
       const res = await fetch("/api/admin/verify-ticket", {
         method: "POST",
@@ -139,6 +147,7 @@ export function QRScanner() {
       })
 
       const data = await res.json()
+      console.log("[QR Scanner] Response:", data.status, data.message)
       // If verification succeeded and booking present
       if (data.status === "success" && data.booking) {
         // If booking is not already checked in, the verify endpoint should have marked it used.

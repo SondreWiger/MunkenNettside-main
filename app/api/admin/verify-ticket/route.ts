@@ -8,11 +8,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     let { qrData, bookingReference } = body
 
+    console.log("[Verify Ticket] ========== REQUEST START ==========")
+    console.log("[Verify Ticket] Headers User-Agent:", request.headers.get("user-agent")?.substring(0, 100))
     console.log("[Verify Ticket] Received request with:", { 
       hasQrData: !!qrData, 
       bookingReference,
       qrDataLength: qrData?.length,
-      qrDataPreview: qrData?.substring(0, 100)
+      qrDataType: typeof qrData,
+      qrDataPreview: qrData?.substring(0, 200)
     })
 
     // Get user from server client (has session context)
