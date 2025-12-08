@@ -210,6 +210,34 @@ export async function POST(request: NextRequest) {
     // Check if already checked in
     const alreadyCheckedIn = booking.status === "used" || !!booking.checked_in_at
 
+    // If not checked in yet, mark as used now so scans are one-time only
+    if (!alreadyCheckedIn) {
+      try {
+        const { error: updateError } = await supabase
+          .from("bookings")
+          .update({
+            status: "used",
+            checked_in_at: new Date().toISOString(),
+            checked_in_by: user.id,
+          })
+          .eq("id", booking.id)
+
+        if (updateError) {
+          console.error("[Verify Ticket] Failed to mark booking as used:", updateError)
+          return NextResponse.json(
+            { status: "error", message: "Kunne ikke sjekke inn billett" },
+            { status: 500 },
+          )
+        }
+
+        // reflect the change locally
+        booking.status = "used"
+      } catch (err) {
+        console.error("[Verify Ticket] Error while marking booking used:", err)
+        return NextResponse.json({ status: "error", message: "Intern serverfeil" }, { status: 500 })
+      }
+    }
+
     // Get seats - they're stored as JSON objects in seat_ids column, not IDs
     const seats = (booking.seat_ids || []).map((seat: any) => ({
       section: seat.section,

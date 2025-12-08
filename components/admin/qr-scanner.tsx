@@ -137,23 +137,38 @@ export function QRScanner() {
       })
 
       const data = await res.json()
+      // If verification succeeded and booking present
+      if (data.status === "success" && data.booking) {
+        // If booking is not already checked in, the verify endpoint should have marked it used.
+        // We still attempt a check-in call for compatibility, but skip if alreadyCheckedIn is true.
+        if (!data.booking.alreadyCheckedIn) {
+          try {
+            const checkInRes = await fetch("/api/admin/check-in", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ bookingId: data.booking.id }),
+            })
 
-      if (data.status === "success" && data.booking && !data.booking.alreadyCheckedIn) {
-        const checkInRes = await fetch("/api/admin/check-in", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId: data.booking.id }),
-        })
-
-        if (checkInRes.ok) {
-          setResult({
-            status: "success",
-            message: "✅ Ticket checked in!",
-            booking: { ...data.booking, alreadyCheckedIn: true },
-          })
-          stopCamera()
+            if (checkInRes.ok) {
+              setResult({
+                status: "success",
+                message: "✅ Ticket checked in!",
+                booking: { ...data.booking, alreadyCheckedIn: true },
+              })
+              stopCamera()
+            } else {
+              // If check-in failed, still show verification result
+              setResult(data)
+              stopCamera()
+            }
+          } catch (err) {
+            setResult({ status: "error", message: "❌ Check-in failed" })
+            stopCamera()
+          }
         } else {
-          setResult(data)
+          // Already checked in (verify endpoint or prior check-in)
+          setResult({ status: "success", message: "✅ Ticket already checked in", booking: data.booking })
+          stopCamera()
         }
       } else {
         setResult(data)
