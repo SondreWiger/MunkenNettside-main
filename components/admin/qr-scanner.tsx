@@ -85,6 +85,13 @@ export function QRScanner() {
   const startCamera = async () => {
     try {
       setCameraError("")
+      
+      // Cancel any previous animation frame
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+        animationRef.current = null
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
@@ -382,15 +389,16 @@ export function QRScanner() {
               <div className="flex gap-2 pt-4">
                 {mode === "camera" && (
                   <Button
-                    onClick={() => {
+                    onClick={async () => {
                       // Fully reset detection state and result
                       setResult(null)
                       lastDetectionRef.current = ""
                       detectionLockRef.current = false
-                      // Restart camera for fresh scanning
-                      if (!isCameraActive) {
-                        startCamera()
-                      }
+                      
+                      // Stop and restart camera for fresh scanning
+                      stopCamera()
+                      await new Promise(resolve => setTimeout(resolve, 500))
+                      startCamera()
                     }}
                     size="lg"
                     className="flex-1 bg-blue-600 hover:bg-blue-700"
