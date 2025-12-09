@@ -1,6 +1,7 @@
 import crypto from "crypto"
 
 const QR_SECRET = process.env.QR_SIGNING_SECRET || "default-secret-change-in-production"
+console.log("[Booking Utils] QR_SECRET available:", !!QR_SECRET, "length:", QR_SECRET?.length, "is default:", QR_SECRET === "default-secret-change-in-production")
 
 export function generateBookingReference(): string {
   const date = new Date()

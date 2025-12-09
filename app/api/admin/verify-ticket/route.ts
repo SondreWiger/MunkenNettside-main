@@ -9,6 +9,8 @@ export async function POST(request: NextRequest) {
     let { qrData, bookingReference } = body
 
     console.log("[Verify Ticket] ========== REQUEST START ==========")
+    console.log("[Verify Ticket] QR_SIGNING_SECRET available:", !!process.env.QR_SIGNING_SECRET)
+    console.log("[Verify Ticket] QR_SIGNING_SECRET length:", process.env.QR_SIGNING_SECRET?.length)
     console.log("[Verify Ticket] Headers User-Agent:", request.headers.get("user-agent")?.substring(0, 100))
     console.log("[Verify Ticket] Received request with:", { 
       hasQrData: !!qrData, 
