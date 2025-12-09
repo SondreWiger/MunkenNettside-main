@@ -6,8 +6,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { ensembleId, recordingIds, team, amount, discountCode } = body
 
-    if (!ensembleId || !recordingIds || !amount) {
-      return NextResponse.json({ error: "Manglende påkrevde felt" }, { status: 400 })
+    console.log("[v0] Purchase request body:", { ensembleId, recordingIds, team, amount, discountCode })
+
+    if (!ensembleId) {
+      return NextResponse.json({ error: "Manglende ensemble ID" }, { status: 400 })
+    }
+
+    if (!recordingIds || !Array.isArray(recordingIds) || recordingIds.length === 0) {
+      return NextResponse.json({ error: "Ingen opptak valgt" }, { status: 400 })
+    }
+
+    if (!amount || amount <= 0) {
+      return NextResponse.json({ error: "Ugyldig beløp" }, { status: 400 })
     }
 
     const supabase = await getSupabaseServerClient()

@@ -48,6 +48,8 @@ export function RecordingCheckout() {
 
       const { data: recordingsData } = await supabase.from("recordings").select("*").eq("ensemble_id", ensembleId)
 
+      console.log("[v0] Loaded data:", { ensembleData, recordingsData })
+
       setEnsemble(ensembleData)
       setRecordings(recordingsData || [])
 
@@ -186,6 +188,19 @@ export function RecordingCheckout() {
       return
     }
 
+    // Validate recordings and price before proceeding
+    const selectedRecordings = getSelectedRecordings()
+    if (selectedRecordings.length === 0) {
+      setError("Ingen opptak tilgjengelig for valgt lag")
+      return
+    }
+
+    const price = calculatePrice()
+    if (price <= 0) {
+      setError("Ugyldig pris. Kontroller at opptak har en gyldig pris.")
+      return
+    }
+
     setIsProcessing(true)
     setError(null)
 
@@ -209,16 +224,20 @@ export function RecordingCheckout() {
       }
 
       // Create purchase via API (mock payment)
+      const requestBody = {
+        ensembleId: ensemble.id,
+        recordingIds: getSelectedRecordings().map((r) => r.id),
+        team: selectedTeam,
+        amount: calculatePrice(),
+        discountCode: appliedDiscount ? discountCode.toUpperCase() : null,
+      }
+
+      console.log("[v0] Sending purchase request:", requestBody)
+
       const response = await fetch("/api/purchases/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ensembleId: ensemble.id,
-          recordingIds: getSelectedRecordings().map((r) => r.id),
-          team: selectedTeam,
-          amount: calculatePrice(),
-          discountCode: appliedDiscount ? discountCode.toUpperCase() : null,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const result = await response.json()
