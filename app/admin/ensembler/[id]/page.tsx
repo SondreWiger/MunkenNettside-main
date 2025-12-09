@@ -137,6 +137,19 @@ export default function EditEnsemblePage() {
   async function addRecording() {
     const supabase = getSupabaseBrowserClient()
 
+    // First, save any ensemble changes (including price)
+    const { error: ensembleError } = await supabase
+      .from("ensembles")
+      .update(ensemble)
+      .eq("id", ensembleId)
+
+    if (ensembleError) {
+      console.error("[v0] Save ensemble error:", ensembleError.message)
+      toast.error("Kunne ikke lagre ensemble: " + ensembleError.message)
+      return
+    }
+
+    // Then add the recording
     const { data, error } = await supabase
       .from("recordings")
       .insert({
@@ -160,7 +173,7 @@ export default function EditEnsemblePage() {
         duration: 0,
         thumbnail_url: "",
       })
-      toast.success("Opptak lagt til!")
+      toast.success("Opptak lagt til og pris oppdatert!")
     }
   }
 
