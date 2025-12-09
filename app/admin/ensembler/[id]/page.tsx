@@ -679,6 +679,23 @@ export default function EditEnsemblePage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>Opptakspris (NOK)</Label>
+                <Input
+                  type="number"
+                  value={ensemble.recording_price_nok ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    const parsed = raw === "" ? 0 : Number.parseFloat(raw)
+                    setEnsemble({
+                      ...ensemble,
+                      recording_price_nok: Number.isNaN(parsed) ? 0 : parsed,
+                    })
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">Denne prisen vises til brukere når de kjøper opptak.</p>
+              </div>
+
               <Button onClick={addRecording} disabled={!newRecording.jottacloud_embed_url}>
                 <Plus className="h-4 w-4 mr-2" />
                 Legg til opptak

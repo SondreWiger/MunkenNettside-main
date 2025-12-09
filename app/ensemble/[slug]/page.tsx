@@ -147,6 +147,8 @@ export default async function EnsemblePage({ params }: PageProps) {
   const yellowTeamMembers = teamMembers.filter((m: any) => m.team === "yellow")
   const blueTeamMembers = teamMembers.filter((m: any) => m.team === "blue")
   const hasRecordings = recordings.length > 0
+  const showProductionLayout = ensemble.stage === "I produksjon" || ensemble.stage === "Arkviert"
+  const isArchived = ensemble.stage === "Arkviert"
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -154,7 +156,7 @@ export default async function EnsemblePage({ params }: PageProps) {
 
       <main id="hovedinnhold" className="flex-1">
         {/* Show production layout first if in production */}
-        {ensemble.stage === "I produksjon" && (
+        {showProductionLayout && (
           /* IMDB Style Layout for Productions in Progress */
           <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
             {/* Hero Image Banner */}
@@ -199,7 +201,11 @@ export default async function EnsemblePage({ params }: PageProps) {
                   {/* Title & Basic Info */}
                   <div>
                     <h1 className="text-5xl md:text-6xl font-black mb-4 text-white leading-tight">{ensemble.title}</h1>
-                    
+                    {isArchived && (
+                      <Badge variant="outline" className="inline-flex items-center text-sm font-medium text-white border-white/40 bg-white/10 py-1 px-3 rounded-full mb-2">
+                        Arkivert
+                      </Badge>
+                    )}
                     {ensemble.year && (
                       <p className="text-2xl text-slate-300 font-semibold mb-6">{ensemble.year}</p>
                     )}
@@ -434,8 +440,8 @@ export default async function EnsemblePage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Regular Hero Section - Only show if NOT in production */}
-        {ensemble.stage !== "I produksjon" && (
+  {/* Regular Hero Section - Only show when not using the production layout */}
+  {!showProductionLayout && (
         <section className="relative bg-primary text-primary-foreground">
           <div className="absolute inset-0">
             {ensemble.banner_url ? (
@@ -539,7 +545,7 @@ export default async function EnsemblePage({ params }: PageProps) {
         </section>
 
         {/* Standard Layout - shown when NOT in production */}
-        {ensemble.stage !== "I produksjon" && (
+  {!showProductionLayout && (
           <div className="container px-4 py-16">
             <div className="grid gap-12 mb-16 lg:grid-cols-3">
               {/* Left Column - Content */}
