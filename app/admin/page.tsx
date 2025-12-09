@@ -3,6 +3,7 @@ import { Film, Ticket, Users, MapPin, QrCode, Tag, Settings, TrendingUp, Calenda
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ClearReservationsButtonWrapper } from "@/components/admin/clear-reservations-wrapper"
+import { DatabaseSetup } from "@/components/admin/database-setup"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { formatPrice } from "@/lib/utils/booking"
 
@@ -20,13 +21,28 @@ async function getAdminData() {
       .from("bookings")
       .select("*", { count: "exact", head: true })
       .eq("status", "confirmed")
+    // Bookings revenue for last 30 days (confirmed + used)
     const { data: recentBookings } = await supabase
       .from("bookings")
       .select("total_amount_nok")
+      .in("status", ["confirmed", "used"])  // include scanned / used bookings
+      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+
+    const { data: recentPurchases } = await supabase
+      .from("purchases")
+      .select("amount")
+      .eq("status", "completed")
+      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+
+    const { data: recentKurs } = await supabase
+      .from("kurs_enrollments")
+      .select("amount_paid_nok")
       .eq("status", "confirmed")
       .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
 
-    const monthlyRevenue = recentBookings?.reduce((sum, b) => sum + (b.total_amount_nok || 0), 0) || 0
+    const monthlyRevenue = (recentBookings?.reduce((sum, b) => sum + (b.total_amount_nok || 0), 0) || 0)
+      + (recentPurchases?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0)
+      + (recentKurs?.reduce((sum, k) => sum + (k.amount_paid_nok || 0), 0) || 0)
 
     return {
       ensembleCount: ensembleCount || 0,
@@ -53,6 +69,7 @@ export default async function AdminDashboard() {
     { name: "Venues", href: "/admin/venues", icon: MapPin, description: "Administrer lokaler" },
     { name: "Rabattkoder", href: "/admin/rabattkoder", icon: Tag, description: "Administrer rabatter" },
     { name: "Innstillinger", href: "/admin/innstillinger", icon: Settings, description: "Nettstedinnstillinger" },
+    { name: "Statistikk", href: "/admin/statistics", icon: TrendingUp, description: "Se plattformens statistikk" },
   ]
 
   return (
@@ -129,8 +146,17 @@ export default async function AdminDashboard() {
           <CardContent>
             <div className="text-3xl font-bold">{formatPrice(monthlyRevenue)}</div>
             <p className="text-xs text-muted-foreground">Siste 30 dager</p>
+            <div className="mt-3">
+              <Button asChild size="sm" variant="ghost">
+                <Link href="/admin/statistics">Se statistikk</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mb-8">
+        <DatabaseSetup />
       </div>
 
       <h2 className="text-2xl font-bold mb-4">Hurtigmeny</h2>

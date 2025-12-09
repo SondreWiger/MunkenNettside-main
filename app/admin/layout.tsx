@@ -12,6 +12,7 @@ import {
   Settings,
   Calendar,
   ChevronLeft,
+  TrendingUp,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
@@ -31,6 +32,7 @@ async function checkAdmin() {
 
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+    { name: "Statistikk", href: "/admin/statistics", icon: TrendingUp },
   { name: "Ensembler", href: "/admin/ensembler", icon: Film },
   { name: "Forestillinger", href: "/admin/forestillinger", icon: Calendar },
   { name: "Bestillinger", href: "/admin/bestillinger", icon: Ticket },
