@@ -4,6 +4,7 @@ import { Footer } from "@/components/layout/footer"
 import { SeatSelector } from "@/components/booking/seat-selector"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { generateSeats, type SeatMapConfig } from "@/lib/utils/seatMapGenerator"
+import type { Seat, Show } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -26,32 +27,49 @@ async function getShowData(showId: string) {
 
   if (!show) return null
 
-  // Generate seats from venue config
-  // The venue's seat_map_config contains rows, cols, blockedSeats, handicapSeats
-  const config: SeatMapConfig = (show.venue?.seat_map_config as SeatMapConfig) || {
-    rows: 10,
-    cols: 10,
-    blockedSeats: [],
-    handicapSeats: [],
+  const { data: seatRecords, error: seatsError } = await supabase
+    .from("seats")
+    .select(
+      "id, show_id, section, row, number, price_nok, status, reserved_until, created_at, updated_at",
+    )
+    .eq("show_id", showId)
+    .order("section")
+    .order("row")
+    .order("number")
+
+  if (seatsError) {
+    console.error("[v0] Could not fetch seats for show", { showId, seatsError })
   }
 
-  console.log("[debug] Booking page config:", {
-    rows: config.rows,
-    cols: config.cols,
-    blockedSeats: config.blockedSeats,
-    handicapSeats: config.handicapSeats,
-    fullConfig: JSON.stringify(config)
-  })
+  let seats: Seat[] = seatRecords || []
 
-  const generatedSeats = generateSeats(config)
-  
-  console.log("[debug] Generated seats:", {
-    total: generatedSeats.length,
-    blocked: generatedSeats.filter(s => s.isBlocked).length,
-    handicap: generatedSeats.filter(s => s.isHandicap).length,
-  })
+  if (seats.length === 0) {
+    const config: SeatMapConfig = (show.venue?.seat_map_config as SeatMapConfig) || {
+      rows: 10,
+      cols: 10,
+      blockedSeats: [],
+      handicapSeats: [],
+    }
 
-  return { show, seats: generatedSeats }
+    console.warn("[v0] No seat records found for show, falling back to generated seats", { showId })
+
+    const generatedSeats = generateSeats(config)
+
+      seats = generatedSeats.map((seat) => ({
+      id: `fallback-${showId}-${seat.section}-${seat.rowLabel}-${seat.seatNumber}`,
+      show_id: showId,
+      section: seat.section,
+      row: seat.rowLabel,
+      number: seat.seatNumber,
+      price_nok: show.base_price_nok || 0,
+      status: seat.isBlocked ? "blocked" : "available",
+        reserved_until: undefined,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }))
+  }
+
+  return { show, seats }
 }
 
 export async function generateMetadata({ params }: PageProps) {

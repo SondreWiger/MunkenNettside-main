@@ -1,36 +1,36 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Users, Calendar, MapPin, Clock, CheckCircle, Accessibility } from "lucide-react"
+import { Loader2, Users, Calendar, MapPin, Clock, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { formatDate, formatTime, formatPrice } from "@/lib/utils/booking"
-import type { Show } from "@/lib/types"
-import type { GeneratedSeat } from "@/lib/utils/seatMapGenerator"
+import type { Seat, SeatStatus, Show } from "@/lib/types"
 
 interface SeatSelectorProps {
   show: Show
-  seats: GeneratedSeat[]
+  seats: Seat[]
 }
 
-export function SeatSelector({ show, seats }: SeatSelectorProps) {
-  const [selectedSeats, setSelectedSeats] = useState<GeneratedSeat[]>([])
+const normalizeStatus = (seat?: Seat): SeatStatus => {
+  const current = (seat?.status || "available").toString().toLowerCase()
+  if (current === "sold") return "sold"
+  if (current === "reserved") return "reserved"
+  if (current === "blocked") return "blocked"
+  return "available"
+}
+
+export function SeatSelector({ show, seats: initialSeats }: SeatSelectorProps) {
+  const [seats, setSeats] = useState<Seat[]>(initialSeats)
+  const [selectedSeats, setSelectedSeats] = useState<Seat[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = getSupabaseBrowserClient()
-
-  // Debug: log seat states
-  console.log("[debug] SeatSelector received seats:", {
-    total: seats.length,
-    blocked: seats.filter(s => s.isBlocked).length,
-    handicap: seats.filter(s => s.isHandicap).length,
-    sample: seats.slice(0, 3)
-  })
 
   const showTitle = show.title || show.ensemble?.title || "Forestilling"
   const teamName =
@@ -40,45 +40,76 @@ export function SeatSelector({ show, seats }: SeatSelectorProps) {
         : show.ensemble.blue_team_name
       : null
 
-  const getSeatKey = (seat: GeneratedSeat) => {
-    return `${seat.section}-${seat.rowLabel}-${seat.seatNumber}`
-  }
+  useEffect(() => {
+    setSeats(initialSeats)
+  }, [initialSeats])
 
-  const toggleSeat = useCallback((seat: GeneratedSeat) => {
-    if (seat.isBlocked) return
+  useEffect(() => {
+    const channel = supabase
+      .channel(`seats-${show.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "seats",
+          filter: `show_id=eq.${show.id}`,
+        },
+        (payload: { new: Seat | null }) => {
+          if (!payload.new) return
+          const updatedSeat = payload.new
+          setSeats((prev) => {
+            const exists = prev.some((seat) => seat.id === updatedSeat.id)
+            if (exists) {
+              return prev.map((seat) => (seat.id === updatedSeat.id ? { ...seat, ...updatedSeat } : seat))
+            }
+            return [...prev, updatedSeat]
+          })
+        },
+      )
+      .subscribe()
 
-    const seatKey = getSeatKey(seat)
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [show.id, supabase])
 
-    setSelectedSeats((prev) => {
-      const isSelected = prev.some((s) => getSeatKey(s) === seatKey)
-      if (isSelected) {
-        return prev.filter((s) => getSeatKey(s) !== seatKey)
-      }
-      return [...prev, seat]
-    })
-  }, [])
+  useEffect(() => {
+    setSelectedSeats((prev) =>
+      prev.filter((seat) => normalizeStatus(seats.find((s) => s.id === seat.id)) === "available"),
+    )
+  }, [seats])
 
-  const totalPrice = selectedSeats.reduce((sum, seat) => sum + (show.base_price_nok || 0), 0)
+  const getSeatKey = useCallback((seat: Seat) => `${seat.section}-${seat.row}-${seat.number}`, [])
 
-  // Group seats by section and row
-  const seatsBySection = seats.reduce(
-    (acc, seat) => {
-      if (!acc[seat.section]) {
-        acc[seat.section] = {}
-      }
-      if (!acc[seat.section][seat.rowLabel]) {
-        acc[seat.section][seat.rowLabel] = []
-      }
-      acc[seat.section][seat.rowLabel].push(seat)
-      return acc
+  const toggleSeat = useCallback(
+    (seat: Seat) => {
+      if (normalizeStatus(seat) !== "available") return
+
+      const seatKey = getSeatKey(seat)
+      setSelectedSeats((prev) => {
+        const isSelected = prev.some((s) => getSeatKey(s) === seatKey)
+        if (isSelected) {
+          return prev.filter((s) => getSeatKey(s) !== seatKey)
+        }
+        return [...prev, seat]
+      })
     },
-    {} as Record<string, Record<string, GeneratedSeat[]>>,
+    [getSeatKey],
   )
 
-  // Sort seats within each row
+  const totalPrice = selectedSeats.reduce((sum, seat) => sum + (seat.price_nok || show.base_price_nok || 0), 0)
+
+  const seatsBySection = seats.reduce((acc, seat) => {
+    if (!acc[seat.section]) acc[seat.section] = {}
+    if (!acc[seat.section][seat.row]) acc[seat.section][seat.row] = []
+    acc[seat.section][seat.row].push(seat)
+    return acc
+  }, {} as Record<string, Record<string, Seat[]>>)
+
   Object.values(seatsBySection).forEach((rows) => {
     Object.values(rows).forEach((rowSeats) => {
-      rowSeats.sort((a, b) => a.seatNumber - b.seatNumber)
+      rowSeats.sort((a, b) => a.number - b.number)
     })
   })
 
@@ -92,20 +123,13 @@ export function SeatSelector({ show, seats }: SeatSelectorProps) {
     setError(null)
 
     try {
-      // Convert selected seats to reservation format
-      const seatsToReserve = selectedSeats.map((s) => ({
-        row: s.row,
-        col: s.col,
-        section: s.section,
-      }))
+      const seatIds = selectedSeats.map((seat) => seat.id)
+      console.log("[debug] Attempting to reserve:", { count: seatIds.length, showId: show.id, seatIds })
 
-      console.log("[debug] Attempting to reserve:", { count: seatsToReserve.length, showId: show.id, sample: seatsToReserve[0] })
-
-      // Call API to reserve seats
       const response = await fetch("/api/seats/reserve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seats: seatsToReserve, showId: show.id }),
+        body: JSON.stringify({ seatIds, showId: show.id }),
       })
 
       const result = await response.json()
@@ -115,12 +139,16 @@ export function SeatSelector({ show, seats }: SeatSelectorProps) {
         throw new Error(result.error || "Kunne ikke reservere setene")
       }
 
-      // Store selection and redirect to checkout
       sessionStorage.setItem(
         "booking",
         JSON.stringify({
           showId: show.id,
-          seats: seatsToReserve,
+          seatIds,
+          seats: selectedSeats.map((seat) => ({
+            section: seat.section,
+            row: seat.row,
+            number: seat.number,
+          })),
           totalPrice,
           reservedUntil: result.reservedUntil,
         }),
@@ -133,13 +161,15 @@ export function SeatSelector({ show, seats }: SeatSelectorProps) {
     }
   }
 
-  const getSeatColor = (seat: GeneratedSeat) => {
+  const getSeatColor = (seat: Seat) => {
     const seatKey = getSeatKey(seat)
     const isSelected = selectedSeats.some((s) => getSeatKey(s) === seatKey)
+    const status = normalizeStatus(seat)
 
     if (isSelected) return "bg-primary text-primary-foreground"
-    if (seat.isBlocked) return "bg-muted text-muted-foreground cursor-not-allowed"
-    if (seat.isHandicap) return "bg-blue-500/20 text-blue-700 hover:bg-blue-500/40 cursor-pointer border border-blue-500/50"
+    if (status === "blocked") return "bg-muted text-muted-foreground cursor-not-allowed"
+    if (status === "sold") return "bg-slate-500/20 text-slate-700 cursor-not-allowed"
+    if (status === "reserved") return "bg-yellow-500/40 text-yellow-900 border border-yellow-500/70 cursor-not-allowed"
     return "bg-green-500/20 text-green-700 hover:bg-green-500/40 cursor-pointer"
   }
 
@@ -165,12 +195,12 @@ export function SeatSelector({ show, seats }: SeatSelectorProps) {
                   <span className="text-sm">Valgt</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-muted border" />
-                  <span className="text-sm">Blokkert</span>
+                  <div className="w-6 h-6 rounded bg-yellow-500/40 border border-yellow-500/70" />
+                  <span className="text-sm">Reservert</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-blue-500/20 border border-blue-500/50" />
-                  <span className="text-sm">Handicap</span>
+                  <div className="w-6 h-6 rounded bg-slate-500/20" />
+                  <span className="text-sm">Solgt / blokkert</span>
                 </div>
               </div>
 
@@ -198,24 +228,19 @@ export function SeatSelector({ show, seats }: SeatSelectorProps) {
                               <div className="flex gap-0.5 flex-nowrap">
                                 {rowSeats.map((seat) => {
                                   const seatKey = getSeatKey(seat)
+                                  const status = normalizeStatus(seat)
                                   return (
                                     <button
                                       key={seatKey}
                                       onClick={() => toggleSeat(seat)}
-                                      disabled={seat.isBlocked}
+                                      disabled={status !== "available"}
                                       className={`w-5 h-5 rounded text-xs font-medium transition-colors flex items-center justify-center relative flex-shrink-0 ${getSeatColor(seat)}`}
-                                      aria-label={`Rad ${seat.rowLabel}, Sete ${seat.seatNumber}, ${
-                                        seat.isHandicap ? "Handicap" : ""
-                                      } ${seat.isBlocked ? "Blokkert" : "Ledig"}, ${formatPrice(show.base_price_nok || 0)}`}
-                                      title={seat.isHandicap ? "Handicap tilgjengelig" : ""}
+                                      aria-label={`Rad ${seat.row}, Sete ${seat.number}, ${
+                                        status === "reserved" ? "Reservert" : status === "sold" ? "Solgt" : "Ledig"
+                                      }, ${formatPrice(show.base_price_nok || seat.price_nok || 0)}`}
+                                      title={seat.blocked_reason || undefined}
                                     >
-                                      {seat.isHandicap ? (
-                                        <Accessibility className="w-3 h-3" />
-                                      ) : seat.isBlocked ? (
-                                        ""
-                                      ) : (
-                                        seat.seatNumber
-                                      )}
+                                      {seat.number}
                                     </button>
                                   )
                                 })}
@@ -273,14 +298,11 @@ export function SeatSelector({ show, seats }: SeatSelectorProps) {
               {selectedSeats.length > 0 ? (
                 <div className="space-y-2">
                   {selectedSeats.map((seat) => (
-                    <div
-                      key={`${seat.section}-${seat.row}-${seat.col}`}
-                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                    >
+                    <div key={seat.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <span>
-                        {seat.section}, Rad {seat.rowLabel}, Sete {seat.seatNumber}
+                        {seat.section}, Rad {seat.row}, Sete {seat.number}
                       </span>
-                      <span className="font-medium">{formatPrice(show.base_price_nok || 0)}</span>
+                      <span className="font-medium">{formatPrice(seat.price_nok || show.base_price_nok || 0)}</span>
                     </div>
                   ))}
                   <div className="border-t pt-3 mt-3">
