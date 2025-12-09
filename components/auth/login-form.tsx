@@ -20,7 +20,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirect") || "/min-side"
+  const redirectTo = searchParams.get("redirect") || "/dashboard"
   const supabase = getSupabaseBrowserClient()
 
   const handleSubmit = async (e: React.FormEvent) => {

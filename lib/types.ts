@@ -1,4 +1,4 @@
-export type UserRole = "customer" | "admin"
+export type UserRole = "customer" | "staff" | "admin"
 export type TeamType = "yellow" | "blue"
 export type ShowType = "ensemble_show" | "standalone" | "kurs_session"
 export type ShowSourceType = "ensemble" | "kurs" | "standalone"
@@ -32,6 +32,8 @@ export interface User {
   email: string
   phone?: string
   role: UserRole
+  profile_slug?: string
+  actor_id?: string // Link to actors table
   created_at: string
   updated_at: string
 }
@@ -41,6 +43,9 @@ export interface CastMember {
   role: string
   bio?: string
   photo_url?: string
+  profile_slug?: string
+  featured?: boolean
+  character?: string
 }
 
 export interface CrewMember {

@@ -63,7 +63,7 @@ export async function POST(
   try {
     const { ensembleId } = await params
     const body = await request.json()
-    const { action, enrollmentId, userId, team, role } = body
+    const { action, enrollmentId, userId, team, role, userFullName } = body
 
     const supabase = await getSupabaseServerClient()
 
@@ -85,7 +85,116 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    if (action === "approve") {
+    if (action === "quickApprove") {
+      // Streamlined approval process that handles everything in one go
+      
+      // First, update enrollment to approved
+      await supabase
+        .from("ensemble_enrollments")
+        .update({
+          status: "approved",
+          reviewed_at: new Date().toISOString(),
+          reviewed_by_id: user.id,
+        })
+        .eq("id", enrollmentId)
+
+      // Check if user already has an actor profile
+      let actorId
+      const { data: existingActor } = await supabase
+        .from("actors")
+        .select("id")
+        .eq("user_id", userId)
+        .single()
+
+      if (existingActor) {
+        actorId = existingActor.id
+      } else {
+        // Create actor profile for user if they don't have one
+        const { data: newActor, error: actorError } = await supabase
+          .from("actors")
+          .insert({
+            name: userFullName,
+            user_id: userId,
+            bio: `Skuespiller i ensemble`,
+          })
+          .select("id")
+          .single()
+
+        if (actorError) {
+          console.error("Error creating actor:", actorError)
+        } else {
+          actorId = newActor.id
+
+          // Update user's actor_id reference
+          await supabase
+            .from("users")
+            .update({ actor_id: actorId })
+            .eq("id", userId)
+        }
+      }
+
+      // Create team member record
+      const { data: teamMember, error: teamError } = await supabase
+        .from("ensemble_team_members")
+        .insert({
+          ensemble_id: ensembleId,
+          user_id: userId,
+          team,
+          role,
+        })
+        .select("id")
+        .single()
+
+      if (teamError) {
+        return NextResponse.json(
+          { error: "Failed to add team member" },
+          { status: 500 }
+        )
+      }
+
+      // If role is a character name (not generic like "Medlem"), create a role entry
+      if (role && !["Medlem", "Crew", "Ensemble"].includes(role) && actorId) {
+        const { data: existingRole } = await supabase
+          .from("roles")
+          .select("id, yellow_actor_id, blue_actor_id")
+          .eq("ensemble_id", ensembleId)
+          .eq("character_name", role)
+          .single()
+
+        if (existingRole) {
+          // Update existing role with the new actor assignment
+          const updateField = team === "yellow" ? "yellow_actor_id" : "blue_actor_id"
+          await supabase
+            .from("roles")
+            .update({ [updateField]: actorId })
+            .eq("id", existingRole.id)
+        } else {
+          // Create new role
+          const roleData: any = {
+            ensemble_id: ensembleId,
+            character_name: role,
+            description: `Rolle spillet av ${userFullName}`,
+            importance: role.includes("Hovedrolle") ? "lead" : "supporting",
+          }
+          
+          if (team === "yellow") {
+            roleData.yellow_actor_id = actorId
+          } else {
+            roleData.blue_actor_id = actorId
+          }
+
+          await supabase
+            .from("roles")
+            .insert(roleData)
+        }
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        teamMemberId: teamMember.id,
+        actorCreated: !existingActor,
+      })
+    } else if (action === "approve") {
       // Move user to team member
       // First update enrollment to approved
       await supabase

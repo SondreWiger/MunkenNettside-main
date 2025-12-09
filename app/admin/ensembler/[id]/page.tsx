@@ -14,6 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { EnsembleControls } from "@/components/admin/ensemble-controls"
+import { EnhancedCastManager } from "@/components/admin/enhanced-cast-manager"
+import { Ensemble } from "@/lib/types"
 import { toast } from "sonner"
 
 export const dynamic = "force-dynamic"
@@ -29,39 +31,6 @@ interface Recording {
   thumbnail_url: string
 }
 
-interface Ensemble {
-  id: string
-  title: string
-  slug: string
-  description: string
-  synopsis_short: string
-  synopsis_long: string
-  thumbnail_url: string
-  banner_url: string
-  trailer_url: string
-  hero_video_url: string
-  gallery_images: string[]
-  press_quotes: any[]
-  awards: any[]
-  yellow_team_name: string
-  blue_team_name: string
-  stage: "Planlagt" | "Påmelding" | "I produksjon" | "Arkviert"
-  yellow_cast: { name: string; role: string; photo_url?: string; profile_slug?: string }[]
-  blue_cast: { name: string; role: string; photo_url?: string; profile_slug?: string }[]
-  crew: { name: string; role: string }[]
-  director: string
-  year: number
-  premiere_date: string
-  duration_minutes: number
-  age_rating: string
-  genre: string[]
-  language: string
-  recording_price_nok: number
-  default_ticket_price_nok: number
-  is_published: boolean
-  featured: boolean
-}
-
 export default function EditEnsemblePage() {
   const router = useRouter()
   const params = useParams()
@@ -71,6 +40,7 @@ export default function EditEnsemblePage() {
   const [saving, setSaving] = useState(false)
   const [ensemble, setEnsemble] = useState<Ensemble | null>(null)
   const [recordings, setRecordings] = useState<Recording[]>([])
+  const [roles, setRoles] = useState<any[]>([])
   const [newGalleryImage, setNewGalleryImage] = useState("")
   const [newRecording, setNewRecording] = useState({
     team: "yellow",
@@ -108,6 +78,16 @@ export default function EditEnsemblePage() {
       .eq("ensemble_id", ensembleId)
       .order("recording_date", { ascending: false })
 
+    // Load roles from the new API
+    try {
+      const rolesResponse = await fetch(`/api/ensembles/${ensembleId}/roles`)
+      const rolesData = await rolesResponse.json()
+      setRoles(rolesData.roles || [])
+    } catch (error) {
+      console.error("Error loading roles:", error)
+      setRoles([])
+    }
+
     setEnsemble({
       ...ensembleData,
       yellow_cast: ensembleData.yellow_cast || [],
@@ -133,6 +113,50 @@ export default function EditEnsemblePage() {
       toast.success("Ensemble lagret!")
     }
     setSaving(false)
+  }
+
+  async function handleSaveRoles(updatedRoles: any[]) {
+    try {
+      console.log("Saving roles:", updatedRoles)
+      const response = await fetch(`/api/ensembles/${ensembleId}/roles`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ roles: updatedRoles }),
+      })
+
+      console.log("Response status:", response.status)
+      
+      const responseText = await response.text()
+      console.log("Response text:", responseText)
+      
+      let responseData
+      try {
+        responseData = JSON.parse(responseText)
+      } catch (e) {
+        console.error("Failed to parse response as JSON:", responseText)
+        toast.error("Ugyldig respons fra server")
+        return
+      }
+      
+      if (!response.ok) {
+        console.error("Error response data:", responseData)
+        
+        if (responseData.code === 'TABLES_NOT_EXIST') {
+          toast.error("Database tabeller er ikke initialisert. Database må settes opp først.")
+        } else {
+          toast.error("Kunne ikke lagre roller: " + (responseData.error || 'Ukjent feil'))
+        }
+        return
+      }
+
+      console.log("Success response data:", responseData)
+      toast.success("Roller lagret")
+    } catch (error) {
+      console.error("Error saving roles:", error)
+      toast.error("Kunne ikke lagre roller: " + (error instanceof Error ? error.message : 'Ukjent feil'))
+    }
   }
 
   async function addRecording() {
@@ -237,11 +261,6 @@ export default function EditEnsemblePage() {
           <Button asChild variant="outline" size="sm">
             <Link href={`/ensemble/${ensemble.slug}`} target="_blank">
               Se på nettstedet ↗
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/admin/ensembler/${ensembleId}/enrollments`}>
-              Håndter påmeldinger
             </Link>
           </Button>
           <div className="flex gap-2 ml-auto">
@@ -470,175 +489,15 @@ export default function EditEnsemblePage() {
         </TabsContent>
 
         <TabsContent value="cast" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gult lag</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(ensemble.yellow_cast || []).map((member, index) => (
-                <div key={index} className="p-4 border rounded-lg space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Navn</Label>
-                      <Input
-                        placeholder="Navn"
-                        value={member.name}
-                        onChange={(e) => {
-                          const newCast = [...ensemble.yellow_cast]
-                          newCast[index] = { ...member, name: e.target.value }
-                          setEnsemble({ ...ensemble, yellow_cast: newCast })
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Rolle</Label>
-                      <Input
-                        placeholder="Rolle"
-                        value={member.role}
-                        onChange={(e) => {
-                          const newCast = [...ensemble.yellow_cast]
-                          newCast[index] = { ...member, role: e.target.value }
-                          setEnsemble({ ...ensemble, yellow_cast: newCast })
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Profilbilde URL</Label>
-                    <Input
-                      placeholder="https://example.com/image.jpg"
-                      value={(member as any)?.photo_url || ""}
-                      onChange={(e) => {
-                        const newCast = [...ensemble.yellow_cast]
-                        newCast[index] = { ...member, photo_url: e.target.value }
-                        setEnsemble({ ...ensemble, yellow_cast: newCast })
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Profillenke (slug)</Label>
-                    <Input
-                      placeholder="john-smith"
-                      value={(member as any)?.profile_slug || ""}
-                      onChange={(e) => {
-                        const newCast = [...ensemble.yellow_cast]
-                        newCast[index] = { ...member, profile_slug: e.target.value }
-                        setEnsemble({ ...ensemble, yellow_cast: newCast })
-                      }}
-                    />
-                  </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      const newCast = ensemble.yellow_cast.filter((_, i) => i !== index)
-                      setEnsemble({ ...ensemble, yellow_cast: newCast })
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Fjern
-                  </Button>
-                </div>
-              ))}
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEnsemble({
-                    ...ensemble,
-                    yellow_cast: [...(ensemble.yellow_cast || []), { name: "", role: "", photo_url: "", profile_slug: "" }],
-                  })
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Legg til medlem
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Blått lag</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(ensemble.blue_cast || []).map((member, index) => (
-                <div key={index} className="p-4 border rounded-lg space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Navn</Label>
-                      <Input
-                        placeholder="Navn"
-                        value={member.name}
-                        onChange={(e) => {
-                          const newCast = [...ensemble.blue_cast]
-                          newCast[index] = { ...member, name: e.target.value }
-                          setEnsemble({ ...ensemble, blue_cast: newCast })
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Rolle</Label>
-                      <Input
-                        placeholder="Rolle"
-                        value={member.role}
-                        onChange={(e) => {
-                          const newCast = [...ensemble.blue_cast]
-                          newCast[index] = { ...member, role: e.target.value }
-                          setEnsemble({ ...ensemble, blue_cast: newCast })
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Profilbilde URL</Label>
-                    <Input
-                      placeholder="https://example.com/image.jpg"
-                      value={(member as any)?.photo_url || ""}
-                      onChange={(e) => {
-                        const newCast = [...ensemble.blue_cast]
-                        newCast[index] = { ...member, photo_url: e.target.value }
-                        setEnsemble({ ...ensemble, blue_cast: newCast })
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Profillenke (slug)</Label>
-                    <Input
-                      placeholder="jane-doe"
-                      value={(member as any)?.profile_slug || ""}
-                      onChange={(e) => {
-                        const newCast = [...ensemble.blue_cast]
-                        newCast[index] = { ...member, profile_slug: e.target.value }
-                        setEnsemble({ ...ensemble, blue_cast: newCast })
-                      }}
-                    />
-                  </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      const newCast = ensemble.blue_cast.filter((_, i) => i !== index)
-                      setEnsemble({ ...ensemble, blue_cast: newCast })
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Fjern
-                  </Button>
-                </div>
-              ))}
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEnsemble({
-                    ...ensemble,
-                    blue_cast: [...(ensemble.blue_cast || []), { name: "", role: "", photo_url: "", profile_slug: "" }],
-                  })
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Legg til medlem
-              </Button>
-            </CardContent>
-          </Card>
+          <EnhancedCastManager 
+            ensembleId={ensembleId}
+            roles={roles}
+            onChange={(updatedRoles) => {
+              setRoles(updatedRoles)
+              // Optionally save changes automatically
+              handleSaveRoles(updatedRoles)
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="members" className="space-y-6">

@@ -3,9 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { formatPrice } from '@/lib/utils/booking'
 import { Badge } from '@/components/ui/badge'
 import { TrendingUp } from 'lucide-react'
-import dynamic from 'next/dynamic'
-const RevenueChartClient = dynamic(() => import('./components/RevenueChartClient').then(m => m.RevenueChartClient), { ssr: false })
-const TopShowsChartClient = dynamic(() => import('./components/TopShowsChartClient').then(m => m.TopShowsChartClient), { ssr: false })
+import { RevenueChartClient } from './components/RevenueChartClient'
+import { TopShowsChartClient } from './components/TopShowsChartClient'
 
 async function fetchStats() {
   const supabase = await getSupabaseServerClient()

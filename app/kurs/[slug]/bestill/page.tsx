@@ -218,7 +218,7 @@ export default function KursCheckoutPage({ params }: { params: { slug: string } 
                     <AlertCircle className="h-4 w-4 text-yellow-600" />
                     <AlertDescription className="text-yellow-800">
                       Du er allerede påmeldt dette kurset. Du kan se dine påmeldinger på{" "}
-                      <Link href="/min-side" className="font-semibold underline">
+                      <Link href="/dashboard" className="font-semibold underline">
                         min side
                       </Link>
                     </AlertDescription>

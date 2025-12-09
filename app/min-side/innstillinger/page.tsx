@@ -24,7 +24,19 @@ interface Profile {
   bio_short?: string
   bio_long?: string
   avatar_url?: string
+  cover_image_url?: string
+  profile_tint?: string
+  website_url?: string
+  instagram_url?: string
+  facebook_url?: string
+  linkedin_url?: string
+  twitter_url?: string
+  location?: string
+  occupation?: string
+  favorite_quote?: string
   is_public?: boolean
+  show_email?: boolean
+  show_phone?: boolean
 }
 
 export default function SettingsPage() {
@@ -38,7 +50,19 @@ export default function SettingsPage() {
     bio_short: "",
     bio_long: "",
     avatar_url: "",
+    cover_image_url: "",
+    profile_tint: "#6366f1",
+    website_url: "",
+    instagram_url: "",
+    facebook_url: "",
+    linkedin_url: "",
+    twitter_url: "",
+    location: "",
+    occupation: "",
+    favorite_quote: "",
     is_public: true,
+    show_email: false,
+    show_phone: false,
   })
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -75,7 +99,19 @@ export default function SettingsPage() {
           bio_short: userData.bio_short || "",
           bio_long: userData.bio_long || "",
           avatar_url: userData.avatar_url || "",
+          cover_image_url: userData.cover_image_url || "",
+          profile_tint: userData.profile_tint || "#6366f1",
+          website_url: userData.website_url || "",
+          instagram_url: userData.instagram_url || "",
+          facebook_url: userData.facebook_url || "",
+          linkedin_url: userData.linkedin_url || "",
+          twitter_url: userData.twitter_url || "",
+          location: userData.location || "",
+          occupation: userData.occupation || "",
+          favorite_quote: userData.favorite_quote || "",
           is_public: userData.is_public ?? true,
+          show_email: userData.show_email ?? false,
+          show_phone: userData.show_phone ?? false,
         })
       }
     } catch (error) {
@@ -101,7 +137,19 @@ export default function SettingsPage() {
           bio_short: formData.bio_short,
           bio_long: formData.bio_long,
           avatar_url: formData.avatar_url,
+          cover_image_url: formData.cover_image_url,
+          profile_tint: formData.profile_tint,
+          website_url: formData.website_url,
+          instagram_url: formData.instagram_url,
+          facebook_url: formData.facebook_url,
+          linkedin_url: formData.linkedin_url,
+          twitter_url: formData.twitter_url,
+          location: formData.location,
+          occupation: formData.occupation,
+          favorite_quote: formData.favorite_quote,
           is_public: formData.is_public,
+          show_email: formData.show_email,
+          show_phone: formData.show_phone,
         })
         .eq("id", profile.id)
 
@@ -233,6 +281,28 @@ export default function SettingsPage() {
                       />
                     </div>
 
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Sted</Label>
+                      <Input
+                        id="location"
+                        type="text"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        placeholder="Oslo, Norge"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="occupation">Yrke/Tittel</Label>
+                      <Input
+                        id="occupation"
+                        type="text"
+                        value={formData.occupation}
+                        onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+                        placeholder="Skuespiller, Student, etc."
+                      />
+                    </div>
+
                     {/* Public Profile Section */}
                     <div className="pt-4 border-t space-y-4">
                       <h3 className="font-semibold">Offentlig profil</h3>
@@ -304,6 +374,17 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="space-y-2">
+                        <Label htmlFor="favoriteQuote">Favoritt sitat</Label>
+                        <Input
+                          id="favoriteQuote"
+                          type="text"
+                          value={formData.favorite_quote}
+                          onChange={(e) => setFormData({ ...formData, favorite_quote: e.target.value })}
+                          placeholder='"All the world&apos;s a stage..."'
+                        />
+                      </div>
+
+                      <div className="space-y-2">
                         <Label htmlFor="avatarUrl">Avatar URL</Label>
                         <Input
                           id="avatarUrl"
@@ -312,6 +393,131 @@ export default function SettingsPage() {
                           onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
                           placeholder="https://eksempel.com/avatar.jpg"
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="coverImageUrl">Banner bilde URL</Label>
+                        <Input
+                          id="coverImageUrl"
+                          type="url"
+                          value={formData.cover_image_url}
+                          onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
+                          placeholder="https://eksempel.com/banner.jpg"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="profileTint">Profilfarge (Hex)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="profileTint"
+                            type="text"
+                            value={formData.profile_tint}
+                            onChange={(e) => setFormData({ ...formData, profile_tint: e.target.value })}
+                            placeholder="#6366f1"
+                            pattern="^#[0-9A-Fa-f]{6}$"
+                          />
+                          <input
+                            type="color"
+                            value={formData.profile_tint}
+                            onChange={(e) => setFormData({ ...formData, profile_tint: e.target.value })}
+                            className="w-14 h-10 rounded border cursor-pointer"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Denne fargen vil brukes som tema på din offentlige profil
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Social Links Section */}
+                    <div className="pt-4 border-t space-y-4">
+                      <h3 className="font-semibold">Sosiale medier</h3>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="websiteUrl">Nettside</Label>
+                        <Input
+                          id="websiteUrl"
+                          type="url"
+                          value={formData.website_url}
+                          onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+                          placeholder="https://dinside.no"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="instagramUrl">Instagram</Label>
+                        <Input
+                          id="instagramUrl"
+                          type="url"
+                          value={formData.instagram_url}
+                          onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
+                          placeholder="https://instagram.com/brukernavn"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="facebookUrl">Facebook</Label>
+                        <Input
+                          id="facebookUrl"
+                          type="url"
+                          value={formData.facebook_url}
+                          onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
+                          placeholder="https://facebook.com/brukernavn"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="linkedinUrl">LinkedIn</Label>
+                        <Input
+                          id="linkedinUrl"
+                          type="url"
+                          value={formData.linkedin_url}
+                          onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
+                          placeholder="https://linkedin.com/in/brukernavn"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="twitterUrl">Twitter/X</Label>
+                        <Input
+                          id="twitterUrl"
+                          type="url"
+                          value={formData.twitter_url}
+                          onChange={(e) => setFormData({ ...formData, twitter_url: e.target.value })}
+                          placeholder="https://twitter.com/brukernavn"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Privacy Section */}
+                    <div className="pt-4 border-t space-y-4">
+                      <h3 className="font-semibold">Personvern</h3>
+
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="showEmail"
+                          checked={formData.show_email}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, show_email: checked as boolean })
+                          }
+                        />
+                        <Label htmlFor="showEmail" className="font-normal cursor-pointer">
+                          Vis e-post på min offentlige profil
+                        </Label>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="showPhone"
+                          checked={formData.show_phone}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, show_phone: checked as boolean })
+                          }
+                        />
+                        <Label htmlFor="showPhone" className="font-normal cursor-pointer">
+                          Vis telefon på min offentlige profil
+                        </Label>
                       </div>
                     </div>
 

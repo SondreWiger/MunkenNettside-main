@@ -53,6 +53,9 @@ function Button({
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
+      // Default to type="button" for forms to avoid accidental submits
+      // If caller passes type explicitly, that will be used instead.
+      type={(props as any).type ?? 'button'}
     />
   )
 }

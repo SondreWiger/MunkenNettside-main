@@ -24,7 +24,7 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirect") || "/min-side"
+  const redirectTo = searchParams.get("redirect") || "/dashboard"
   const supabase = getSupabaseBrowserClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +68,29 @@ export function RegisterForm() {
       }
 
       if (data.user) {
+        // Create profile in our database
+        try {
+          const profileResponse = await fetch("/api/auth/setup-profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: data.user.id,
+              fullName,
+              phone,
+              email,
+            }),
+          })
+
+          if (!profileResponse.ok) {
+            const errorData = await profileResponse.json()
+            console.error("Profile setup failed:", errorData)
+            // Don't fail registration if profile setup fails
+          }
+        } catch (profileError) {
+          console.error("Profile setup error:", profileError)
+          // Don't fail registration if profile setup fails
+        }
+
         setSuccess(true)
       }
     } catch {

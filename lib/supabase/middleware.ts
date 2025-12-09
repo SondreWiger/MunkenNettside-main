@@ -44,7 +44,7 @@ export async function updateSession(request: NextRequest) {
 
     // Protect user routes
     if (
-      (request.nextUrl.pathname.startsWith("/min-side") ||
+      (request.nextUrl.pathname.startsWith("/dashboard") ||
         request.nextUrl.pathname.startsWith("/billetter") ||
         request.nextUrl.pathname.startsWith("/se/")) &&
       !user

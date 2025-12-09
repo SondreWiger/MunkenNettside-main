@@ -109,13 +109,13 @@ export function Header() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem asChild>
-                  <Link href="/min-side" className="flex items-center gap-2">
+                  <Link href="/dashboard" className="flex items-center gap-2">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/min-side/innstillinger" className="flex items-center gap-2">
+                  <Link href="/dashboard/innstillinger" className="flex items-center gap-2">
                     <Settings className="h-4 w-4" />
                     Innstillinger
                   </Link>
@@ -129,7 +129,7 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/min-side/innstillinger" className="flex items-center gap-2">
+                  <Link href="/dashboard/innstillinger" className="flex items-center gap-2">
                     <Settings className="h-4 w-4" />
                     Innstillinger
                   </Link>

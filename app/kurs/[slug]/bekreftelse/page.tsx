@@ -211,7 +211,7 @@ export default async function EnrollmentConfirmationPage({
                       </p>
                       <p>
                         ✓ Du kan se alle dine påmeldinger på{" "}
-                        <Link href="/min-side" className="font-bold underline">
+                        <Link href="/dashboard" className="font-bold underline">
                           min side
                         </Link>
                       </p>
@@ -238,7 +238,7 @@ export default async function EnrollmentConfirmationPage({
 
                     <div className="space-y-2 pt-4 border-t">
                       <Button asChild className="w-full" variant="outline">
-                        <Link href="/min-side" className="gap-2">
+                        <Link href="/dashboard" className="gap-2">
                           <Home className="h-4 w-4" />
                           Min side
                         </Link>

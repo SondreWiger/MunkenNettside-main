@@ -1,10 +1,9 @@
 import { notFound, redirect } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
-import { SeatSelector } from "@/components/booking/seat-selector"
+import { SeatMapViewer } from "@/components/booking/seat-map-viewer"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
-import { generateSeats, type SeatMapConfig } from "@/lib/utils/seatMapGenerator"
-import type { Seat, Show } from "@/lib/types"
+import { generateSeatsFromConfig } from "@/lib/utils/seat-generation"
 
 export const dynamic = "force-dynamic"
 
@@ -27,49 +26,58 @@ async function getShowData(showId: string) {
 
   if (!show) return null
 
-  const { data: seatRecords, error: seatsError } = await supabase
-    .from("seats")
-    .select(
-      "id, show_id, section, row, number, price_nok, status, reserved_until, created_at, updated_at",
-    )
-    .eq("show_id", showId)
-    .order("section")
-    .order("row")
-    .order("number")
+  console.log("Show venue data:", {
+    venueId: show.venue?.id,
+    venueName: show.venue?.name,
+    hasSeatMapConfig: !!show.venue?.seat_map_config,
+    seatMapConfig: show.venue?.seat_map_config
+  });
 
-  if (seatsError) {
-    console.error("[v0] Could not fetch seats for show", { showId, seatsError })
-  }
+  // Calculate early bird pricing
+  const showDate = new Date(show.show_datetime)
+  const now = new Date()
+  const oneMonthBeforeShow = new Date(showDate.getTime() - (30 * 24 * 60 * 60 * 1000))
+  const isEarlyBird = now < oneMonthBeforeShow
+  const earlyBirdDiscount = isEarlyBird ? 100 : 0
 
-  let seats: Seat[] = seatRecords || []
-
-  if (seats.length === 0) {
-    const config: SeatMapConfig = (show.venue?.seat_map_config as SeatMapConfig) || {
-      rows: 10,
-      cols: 10,
-      blockedSeats: [],
-      handicapSeats: [],
+  // Get seats - use shared utility function
+  let seats: any[] = []
+  
+  try {
+    const result = await generateSeatsFromConfig(showId, supabase)
+    seats = result.seats
+    console.log("Seat generation result:", {
+      generated: result.generated,
+      seatsCount: result.seats?.length || 0,
+      count: result.count
+    });
+    if (result.generated) {
+      console.log(`Generated ${result.count} seats for show ${showId}`)
     }
+  } catch (error) {
+    console.log('Seat generation failed, falling back to direct database query:', error)
+    // Fallback to direct database query
+    const { data: seatRecords, error: seatsError } = await supabase
+      .from("seats")
+      .select("*")
+      .eq("show_id", showId)
+      .order("section")
+      .order("row")
+      .order("number")
 
-    console.warn("[v0] No seat records found for show, falling back to generated seats", { showId })
-
-    const generatedSeats = generateSeats(config)
-
-      seats = generatedSeats.map((seat) => ({
-      id: `fallback-${showId}-${seat.section}-${seat.rowLabel}-${seat.seatNumber}`,
-      show_id: showId,
-      section: seat.section,
-      row: seat.rowLabel,
-      number: seat.seatNumber,
-      price_nok: show.base_price_nok || 0,
-      status: seat.isBlocked ? "blocked" : "available",
-        reserved_until: undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }))
+    if (!seatsError && seatRecords) {
+      seats = seatRecords
+    }
   }
 
-  return { show, seats }
+  return { 
+    show, 
+    seats, 
+    isEarlyBird, 
+    earlyBirdDiscount,
+    originalPrice: show.base_price_nok,
+    currentPrice: show.base_price_nok - earlyBirdDiscount
+  }
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -95,7 +103,7 @@ export default async function BookingPage({ params }: PageProps) {
     notFound()
   }
 
-  const { show, seats } = data
+  const { show, seats, isEarlyBird, earlyBirdDiscount, originalPrice, currentPrice } = data
 
   console.log(`[v0] Rendering page with ${seats?.length || 0} seats`)
 
@@ -113,7 +121,12 @@ export default async function BookingPage({ params }: PageProps) {
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
-        <SeatSelector show={show} seats={seats} />
+        <SeatMapViewer 
+          show={show} 
+          seats={seats} 
+          isEarlyBird={isEarlyBird}
+          earlyBirdDiscount={earlyBirdDiscount}
+        />
       </main>
 
       <Footer />

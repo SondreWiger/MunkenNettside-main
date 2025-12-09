@@ -84,6 +84,7 @@ async function getUserData() {
   
   console.log("DEBUG - ALL enrollments:", { allEnrollments, allError })
 
+  // Fetch ensemble enrollments (accepted users)
   const { data: ensembleEnrollments, error: ensembleError } = await supabase
     .from("ensemble_enrollments")
     .select(`
@@ -100,6 +101,73 @@ async function getUserData() {
     .order("enrolled_at", { ascending: false })
 
   console.log("Ensemble enrollments query result (filtered):", { ensembleEnrollments, ensembleError })
+
+  // Also fetch pending enrollments to show status
+  const { data: pendingEnrollments } = await supabase
+    .from("ensemble_enrollments")
+    .select(`
+      id,
+      user_id,
+      ensemble_id,
+      status,
+      enrolled_at,
+      ensemble:ensembles (
+        id,
+        title
+      )
+    `)
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .order("enrolled_at", { ascending: false })
+
+  console.log("Pending enrollments:", pendingEnrollments)
+
+  // Fetch actor profile and roles assigned to the user
+  const { data: actorProfile, error: actorError } = await supabase
+    .from("actors")
+    .select("id, name, bio, profile_image_url")
+    .eq("user_id", user.id)
+    .single()
+
+  console.log("Actor profile query:", { actorProfile, actorError, userId: user.id })
+
+  let assignedRoles: any[] = []
+  if (actorProfile) {
+    // Fetch roles where this actor is assigned to yellow or blue team
+    const { data: rolesData, error: rolesError } = await supabase
+      .from("roles")
+      .select(`
+        id,
+        character_name,
+        description,
+        importance,
+        yellow_actor_id,
+        blue_actor_id,
+        ensemble:ensembles (
+          id,
+          title,
+          slug,
+          description,
+          image_url,
+          yellow_team_name,
+          blue_team_name
+        )
+      `)
+      .or(`yellow_actor_id.eq.${actorProfile.id},blue_actor_id.eq.${actorProfile.id}`)
+      .order("created_at", { ascending: false })
+
+    console.log("Roles query:", { rolesData, rolesError, actorId: actorProfile.id })
+
+    if (rolesData) {
+      assignedRoles = rolesData.map((role) => ({
+        ...role,
+        team: role.yellow_actor_id === actorProfile.id ? "yellow" : "blue",
+      }))
+    }
+    console.log("Assigned roles (processed):", assignedRoles)
+  } else {
+    console.log("No actor profile found for user", user.id)
+  }
 
   // Fetch ensemble details for each enrollment
   let ensembleEnrollmentsWithDetails: any[] = []
@@ -126,6 +194,9 @@ async function getUserData() {
     bookings: bookings || [],
     enrollments: enrollments || [],
     ensembleEnrollments: ensembleEnrollmentsWithDetails,
+    pendingEnrollments: pendingEnrollments || [],
+    actorProfile,
+    assignedRoles,
   }
 }
 
@@ -136,7 +207,7 @@ export default async function UserProfilePage() {
     redirect("/logg-inn?redirect=/min-side")
   }
 
-  const { user, profile, purchases, bookings, enrollments, ensembleEnrollments } = data
+  const { user, profile, purchases, bookings, enrollments, ensembleEnrollments, pendingEnrollments, actorProfile, assignedRoles } = data
 
   const confirmedBookings = bookings.filter((b) => b.status === "confirmed")
   const usedBookings = bookings.filter((b) => b.status === "used")
@@ -593,13 +664,103 @@ export default async function UserProfilePage() {
                             </p>
                           </div>
                         ))
-                      ) : (
+                      ) : null}
+
+                      {pendingEnrollments && pendingEnrollments.length > 0 && (
+                        <div className="border-t pt-4 mt-4">
+                          <p className="text-sm font-medium text-muted-foreground mb-3">Venter på godkjenning</p>
+                          {pendingEnrollments.map((enrollment: any) => (
+                            <div key={enrollment.id} className="border-b pb-3 last:border-b-0 mb-3">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-medium">
+                                    {Array.isArray(enrollment.ensemble) 
+                                      ? enrollment.ensemble[0]?.title || "—" 
+                                      : enrollment.ensemble?.title || "—"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Søkt: {formatDate(enrollment.enrolled_at)}
+                                  </p>
+                                </div>
+                                <Badge className="bg-gray-100 text-gray-700">
+                                  Venter
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {(!ensembleEnrollments || ensembleEnrollments.length === 0) && 
+                       (!pendingEnrollments || pendingEnrollments.length === 0) && (
                         <p className="text-muted-foreground text-center py-6">
                           Du er ikke tildelt noen ensembler ennå
                         </p>
                       )}
                     </CardContent>
                   </Card>
+
+                  {/* Actor Portfolio - Assigned Roles */}
+                  {assignedRoles && assignedRoles.length > 0 && (
+                    <Card className="mt-6">
+                      <CardHeader>
+                        <CardTitle>Min portefølje</CardTitle>
+                        <CardDescription>Roller du er tildelt i produksjoner</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {assignedRoles.map((role) => {
+                          const ensemble = Array.isArray(role.ensemble) ? role.ensemble[0] : role.ensemble
+                          const teamName = role.team === "yellow" 
+                            ? ensemble?.yellow_team_name || "Gult lag"
+                            : ensemble?.blue_team_name || "Blått lag"
+                          
+                          return (
+                            <div key={role.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <h3 className="text-xl font-bold text-foreground">{role.character_name}</h3>
+                                  <p className="text-lg text-muted-foreground mt-1">
+                                    {ensemble?.title || "—"}
+                                  </p>
+                                </div>
+                                <Badge
+                                  className={
+                                    role.team === "yellow"
+                                      ? "bg-yellow-100 text-yellow-900"
+                                      : "bg-blue-100 text-blue-900"
+                                  }
+                                >
+                                  {teamName}
+                                </Badge>
+                              </div>
+
+                              {role.description && (
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  {role.description}
+                                </p>
+                              )}
+
+                              {role.importance && (
+                                <Badge variant="outline" className="text-xs">
+                                  {role.importance === "lead" && "Hovedrolle"}
+                                  {role.importance === "supporting" && "Birolle"}
+                                  {role.importance === "ensemble" && "Ensemblerolle"}
+                                </Badge>
+                              )}
+
+                              {ensemble?.slug && (
+                                <Button asChild variant="link" className="mt-2 px-0">
+                                  <Link href={`/ensemble/${ensemble.slug}`}>
+                                    Se produksjon →
+                                  </Link>
+                                </Button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {/* Account Actions */}
                   <Card className="border-destructive/50 mt-6">

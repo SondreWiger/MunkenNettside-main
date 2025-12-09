@@ -74,6 +74,14 @@ export default async function EnsemblesPage() {
                         <Badge variant={ensemble.is_published ? "default" : "secondary"}>
                           {ensemble.is_published ? "Publisert" : "Kladd"}
                         </Badge>
+                        {ensemble.stage === "Påmelding" && (
+                          <Badge variant="default" className="bg-green-600">
+                            Påmelding åpen
+                          </Badge>
+                        )}
+                        {ensemble.stage && ensemble.stage !== "Påmelding" && (
+                          <Badge variant="outline">{ensemble.stage}</Badge>
+                        )}
                         <Badge variant="outline">{ensemble.recordings?.[0]?.count || 0} opptak</Badge>
                       </div>
                     </div>

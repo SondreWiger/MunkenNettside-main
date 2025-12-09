@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Calendar, Clock, Film, Play, Ticket, Users, Star, Quote } from "lucide-react"
+import { Calendar, Clock, Film, Play, Ticket, Users, Star, Quote, User, Theater } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +44,31 @@ async function getEnsembleData(slug: string) {
     .gte("show_datetime", new Date().toISOString())
     .order("show_datetime", { ascending: true })
 
+  // Update available seats for each show
+  if (shows) {
+    for (const show of shows) {
+      // Only recalculate if seats exist, otherwise use the existing value or a default
+      const { data: totalSeats } = await supabase
+        .from("seats")
+        .select("id")
+        .eq("show_id", show.id)
+      
+      if (totalSeats && totalSeats.length > 0) {
+        // Seats exist, calculate dynamically
+        const { data: unavailableSeats } = await supabase
+          .from("seats")
+          .select("id")
+          .eq("show_id", show.id)
+          .in("status", ["sold", "reserved"])
+        
+        show.available_seats = (totalSeats?.length || 0) - (unavailableSeats?.length || 0)
+      } else {
+        // No seats created yet, use existing value or default to a reasonable number
+        show.available_seats = show.available_seats || 50
+      }
+    }
+  }
+
   // Get team members
   const { data: teamMembers } = await supabase
     .from("ensemble_team_members")
@@ -54,6 +79,38 @@ async function getEnsembleData(slug: string) {
     .eq("ensemble_id", ensemble.id)
     .order("team")
     .order("position_order")
+
+  // Get roles with actors and linked user profile info
+  const { data: roles } = await supabase
+    .from('roles')
+    .select(`
+      id,
+      character_name,
+      description,
+      importance,
+      yellow_actor:yellow_actor_id(
+        id,
+        name,
+        bio,
+        photo_url,
+        contact_email,
+        contact_phone,
+        user_id,
+        user:user_id(profile_slug)
+      ),
+      blue_actor:blue_actor_id(
+        id,
+        name,
+        bio,
+        photo_url,
+        contact_email,
+        contact_phone,
+        user_id,
+        user:user_id(profile_slug)
+      )
+    `)
+    .eq('ensemble_id', ensemble.id)
+    .order('importance, character_name')
 
   // Increment view count
   await supabase
@@ -66,6 +123,7 @@ async function getEnsembleData(slug: string) {
     recordings: (recordings || []) as Recording[],
     shows: (shows || []) as Show[],
     teamMembers: teamMembers || [],
+    roles: roles || [],
   }
 }
 
@@ -141,7 +199,7 @@ export default async function EnsemblePage({ params }: PageProps) {
     notFound()
   }
 
-  const { ensemble, recordings, shows, teamMembers } = data
+  const { ensemble, recordings, shows, teamMembers, roles } = data
   const yellowRecordings = recordings.filter((r) => r.team === "yellow")
   const blueRecordings = recordings.filter((r) => r.team === "blue")
   const yellowTeamMembers = teamMembers.filter((m: any) => m.team === "yellow")
@@ -243,6 +301,139 @@ export default async function EnsemblePage({ params }: PageProps) {
                 </div>
               </div>
 
+              {/* Synopsis Section - Moved to top */}
+              {ensemble.synopsis_long && (
+                <section className="mb-16">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="h-1 w-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-white">Om forestillingen</h2>
+                      <p className="text-slate-400 text-lg font-medium">Handling og bakgrunn</p>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-700">
+                    <div className="prose prose-lg prose-invert max-w-none">
+                      <p className="text-slate-200 leading-relaxed whitespace-pre-wrap">{ensemble.synopsis_long}</p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Upcoming Shows Section - Moved to top */}
+              {(() => {
+                // Filter out past shows
+                const upcomingShows = shows.filter(show => new Date(show.show_datetime) > new Date())
+                
+                if (upcomingShows.length === 0) return null
+                
+                return (
+                  <section className="mb-16">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"></div>
+                      <div>
+                        <h2 className="text-3xl font-bold text-white">Kommende forestillinger</h2>
+                        <p className="text-slate-400 text-lg font-medium">Kjøp billetter til forestillingene</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {upcomingShows.map((show) => {
+                        const showDate = new Date(show.show_datetime)
+                        const now = new Date()
+                        const oneMonthBeforeShow = new Date(showDate.getTime() - (30 * 24 * 60 * 60 * 1000))
+                        const isEarlyBird = now < oneMonthBeforeShow
+                        const earlyBirdPrice = show.base_price_nok - 100
+                        const currentPrice = isEarlyBird ? earlyBirdPrice : show.base_price_nok
+                        
+                        // Determine card styling based on availability
+                        const seatsLeft = show.available_seats || 0
+                        const isLowAvailability = seatsLeft <= 10 && seatsLeft > 0
+                        const isSoldOut = seatsLeft === 0
+                        
+                        const getCardStyling = () => {
+                          if (isSoldOut) return "bg-gradient-to-br from-gray-800/50 to-gray-900/50 border-gray-600/30"
+                          if (isLowAvailability) return "bg-gradient-to-br from-amber-900/20 to-orange-900/20 border-amber-600/30 hover:border-amber-500/50"
+                          return "bg-gradient-to-br from-slate-800/40 to-slate-900/40 border-slate-600/30 hover:border-blue-500/50"
+                        }
+                        
+                        const getAvailabilityText = () => {
+                          if (isSoldOut) return "Utsolgt"
+                          if (isLowAvailability) return `Kun ${seatsLeft} billetter igjen!`
+                          return `${seatsLeft} billetter tilgjengelig`
+                        }
+                        
+                        const getAvailabilityColor = () => {
+                          if (isSoldOut) return "text-gray-400"
+                          if (isLowAvailability) return "text-amber-400"
+                          return "text-slate-400"
+                        }
+                        
+                        return (
+                          <div key={show.id} className={`${getCardStyling()} rounded-xl p-6 border transition-all duration-300 hover:shadow-lg ${!isSoldOut ? 'hover:scale-105' : ''}`}>
+                            {/* Show Date & Venue */}
+                            <div className="flex items-start gap-3 mb-4">
+                              <Calendar className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
+                              <div className="flex-grow">
+                                <p className="text-lg font-semibold text-white">{formatDate(show.show_datetime)}</p>
+                                <p className="text-sm text-slate-400">{show.venue?.name}</p>
+                              </div>
+                            </div>
+                            
+                            {/* Pricing Info */}
+                            <div className="mb-4">
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <span className="text-xl font-bold text-white">{formatPrice(currentPrice)}</span>
+                                {isEarlyBird && (
+                                  <span className="text-sm text-slate-400 line-through">{formatPrice(show.base_price_nok)}</span>
+                                )}
+                              </div>
+                              {isEarlyBird && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs bg-green-600 text-white px-2 py-1 rounded-full font-medium">
+                                    Early Bird - Spar 100 kr!
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Availability */}
+                            <div className="mb-4">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-slate-400" />
+                                <span className={`text-sm font-medium ${getAvailabilityColor()}`}>
+                                  {getAvailabilityText()}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Action Button */}
+                            {isSoldOut ? (
+                              <Button disabled className="w-full bg-gray-600 text-gray-300 cursor-not-allowed">
+                                <Users className="h-4 w-4 mr-2" />
+                                Utsolgt
+                              </Button>
+                            ) : (
+                              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                                <Link href={`/bestill/${show.id}`}>
+                                  <Ticket className="h-4 w-4 mr-2" />
+                                  {isLowAvailability ? 'Kjøp raskt!' : 'Kjøp billetter'}
+                                </Link>
+                              </Button>
+                            )}
+                            
+                            {/* Early Bird Timer */}
+                            {!isEarlyBird && currentPrice === show.base_price_nok && (
+                              <p className="text-xs text-slate-500 mt-2 text-center">
+                                Early Bird periode utløpt
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )
+              })()}
+
               {/* Gallery */}
               {ensemble.gallery_images && ensemble.gallery_images.length > 0 && (
                 <section className="mb-16 relative z-1000">
@@ -274,8 +465,419 @@ export default async function EnsemblePage({ params }: PageProps) {
                 </section>
               )}
 
+              {/* Featured Cast Members - Show prominently */}
+              {(() => {
+                const featuredMembers = [
+                  ...(ensemble.yellow_cast || []).filter((m: any) => m.featured),
+                  ...(ensemble.blue_cast || []).filter((m: any) => m.featured)
+                ]
+                return featuredMembers.length > 0 && (
+                  <section className="mb-16">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="h-1 w-12 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full"></div>
+                      <div>
+                        <h2 className="text-3xl font-bold text-white">Hovedroller</h2>
+                        <p className="text-slate-400 text-lg font-medium">Fremhevede skuespillere</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                      {featuredMembers.map((member: CastMember, index: number) => {
+                        const hasProfile = (member as any)?.profile_slug
+                        const cardContent = (
+                          <div className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-slate-700 hover:border-amber-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/20 hover:scale-105">
+                            <div className="aspect-[3/4] relative bg-slate-700 overflow-hidden">
+                              {member.photo_url ? (
+                                <Image
+                                  src={member.photo_url}
+                                  alt={member.name}
+                                  fill
+                                  className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-900/20 to-amber-800/10">
+                                  <Users className="h-12 w-12 text-amber-600/50" />
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                              <div className="absolute top-3 right-3">
+                                <Badge className="bg-amber-500 text-amber-50 font-semibold">Hovedrolle</Badge>
+                              </div>
+                            </div>
+                            <div className="p-4 text-center">
+                              <p className="text-xl font-semibold text-white group-hover:text-amber-300 transition-colors">{member.name}</p>
+                              <p className="text-sm text-slate-400 mt-1">{member.role}</p>
+                              {(member as any)?.character && (
+                                <p className="text-xs text-amber-400 mt-1">som {(member as any).character}</p>
+                              )}
+                            </div>
+                          </div>
+                        )
+                        
+                        if (hasProfile) {
+                          return (
+                            <Link key={index} href={`/profile/${(member as any).profile_slug}`}>
+                              {cardContent}
+                            </Link>
+                          )
+                        }
+                        
+                        return (
+                          <div key={index}>
+                            {cardContent}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )
+              })()}
+
+              {/* Cast Tabs - All Members */}
+              {((ensemble.yellow_cast && ensemble.yellow_cast.length > 0) || (ensemble.blue_cast && ensemble.blue_cast.length > 0)) && (
+                <section className="mb-16">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-white">Komplett rollebesetning</h2>
+                      <p className="text-slate-400 text-lg font-medium">Alle skuespillere og crew</p>
+                    </div>
+                  </div>
+                  
+                  <Tabs defaultValue="yellow" className="w-full">
+                    <TabsList className="grid w-full max-w-md grid-cols-2 bg-slate-800 border border-slate-700">
+                      {ensemble.yellow_cast && ensemble.yellow_cast.length > 0 && (
+                        <TabsTrigger value="yellow" className="text-yellow-400 data-[state=active]:bg-yellow-600 data-[state=active]:text-white">
+                          {ensemble.yellow_team_name} ({ensemble.yellow_cast.length})
+                        </TabsTrigger>
+                      )}
+                      {ensemble.blue_cast && ensemble.blue_cast.length > 0 && (
+                        <TabsTrigger value="blue" className="text-blue-400 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                          {ensemble.blue_team_name} ({ensemble.blue_cast.length})
+                        </TabsTrigger>
+                      )}
+                    </TabsList>
+                    
+                    {ensemble.yellow_cast && ensemble.yellow_cast.length > 0 && (
+                      <TabsContent value="yellow" className="mt-8">
+                        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                          {ensemble.yellow_cast.map((member: CastMember, index: number) => {
+                            const hasProfile = (member as any)?.profile_slug
+                            const isFeatured = (member as any)?.featured
+                            const cardContent = (
+                              <div className={`group bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-slate-700 hover:border-yellow-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-500/20 hover:scale-105 ${isFeatured ? 'ring-2 ring-amber-500/30' : ''}`}>
+                                <div className="aspect-[3/4] relative bg-slate-700 overflow-hidden">
+                                  {member.photo_url ? (
+                                    <Image
+                                      src={member.photo_url}
+                                      alt={member.name}
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-900/20 to-yellow-800/10">
+                                      <Users className="h-12 w-12 text-yellow-600/50" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                  {isFeatured && (
+                                    <div className="absolute top-3 right-3">
+                                      <Badge className="bg-amber-500 text-amber-50 font-semibold text-xs">★</Badge>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-4 text-center">
+                                  <p className="text-xl font-semibold text-white group-hover:text-yellow-300 transition-colors">{member.name}</p>
+                                  <p className="text-sm text-slate-400 mt-1">{member.role}</p>
+                                  {(member as any)?.character && (
+                                    <p className="text-xs text-yellow-400 mt-1">som {(member as any).character}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                            
+                            if (hasProfile) {
+                              return (
+                                <Link key={index} href={`/profile/${(member as any).profile_slug}`}>
+                                  {cardContent}
+                                </Link>
+                              )
+                            }
+                            
+                            return (
+                              <div key={index}>
+                                {cardContent}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </TabsContent>
+                    )}
+                    
+                    {ensemble.blue_cast && ensemble.blue_cast.length > 0 && (
+                      <TabsContent value="blue" className="mt-8">
+                        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                          {ensemble.blue_cast.map((member: CastMember, index: number) => {
+                            const hasProfile = (member as any)?.profile_slug
+                            const isFeatured = (member as any)?.featured
+                            const cardContent = (
+                              <div className={`group bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-105 ${isFeatured ? 'ring-2 ring-amber-500/30' : ''}`}>
+                                <div className="aspect-[3/4] relative bg-slate-700 overflow-hidden">
+                                  {member.photo_url ? (
+                                    <Image
+                                      src={member.photo_url}
+                                      alt={member.name}
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-900/20 to-blue-800/10">
+                                      <Users className="h-12 w-12 text-blue-600/50" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                  {isFeatured && (
+                                    <div className="absolute top-3 right-3">
+                                      <Badge className="bg-amber-500 text-amber-50 font-semibold text-xs">★</Badge>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-4 text-center">
+                                  <p className="text-xl font-semibold text-white group-hover:text-blue-300 transition-colors">{member.name}</p>
+                                  <p className="text-sm text-slate-400 mt-1">{member.role}</p>
+                                  {(member as any)?.character && (
+                                    <p className="text-xs text-blue-400 mt-1">som {(member as any).character}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                            
+                            if (hasProfile) {
+                              return (
+                                <Link key={index} href={`/profile/${(member as any).profile_slug}`}>
+                                  {cardContent}
+                                </Link>
+                              )
+                            }
+                            
+                            return (
+                              <div key={index}>
+                                {cardContent}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </TabsContent>
+                    )}
+                  </Tabs>
+                </section>
+              )}
+
+              {/* Roles/Cast Section */}
+              {roles && roles.length > 0 && (
+                <section className="mb-16">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="h-1 w-12 bg-gradient-to-r from-amber-500 to-amber-600 rounded-full"></div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-white">Rollebesetning</h2>
+                      <p className="text-slate-400 text-lg font-medium">Karakterer og skuespillere</p>
+                    </div>
+                  </div>
+                  
+                  <Tabs defaultValue="yellow" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 h-14 bg-slate-800/50 border border-slate-700">
+                      <TabsTrigger 
+                        value="yellow" 
+                        className="text-base h-12 data-[state=active]:bg-yellow-600 data-[state=active]:text-black font-semibold"
+                      >
+                        {ensemble.yellow_team_name || 'Gult lag'}
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="blue" 
+                        className="text-base h-12 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold"
+                      >
+                        {ensemble.blue_team_name || 'Blått lag'}
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="yellow" className="mt-8">
+                      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                        {roles
+                          .filter(role => role.yellow_actor)
+                          .map((role: any, index: number) => {
+                            const actor = role.yellow_actor
+                            const hasUserProfile = actor?.user_id && actor?.user?.profile_slug
+                            const hasActorProfile = actor?.id
+                            
+                            const cardContent = (
+                              <div className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-slate-700 hover:border-yellow-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-500/20 hover:scale-105">
+                                <div className="aspect-[3/4] relative bg-slate-700 overflow-hidden">
+                                  {actor?.photo_url ? (
+                                    <Image
+                                      src={actor.photo_url}
+                                      alt={actor.name}
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-900/20 to-yellow-800/10">
+                                      <Users className="h-12 w-12 text-yellow-600/50" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                  {role.importance === 'lead' && (
+                                    <div className="absolute top-3 right-3">
+                                      <Badge className="bg-amber-500 text-amber-50 font-semibold text-xs">⭐</Badge>
+                                    </div>
+                                  )}
+                                  {hasUserProfile && (
+                                    <div className="absolute top-3 left-3">
+                                      <Badge className="bg-green-600 text-white text-xs px-2 py-1">
+                                        <User className="h-3 w-3 mr-1" />
+                                        Profil
+                                      </Badge>
+                                    </div>
+                                  )}
+                                  {!hasUserProfile && hasActorProfile && (
+                                    <div className="absolute top-3 left-3">
+                                      <Badge className="bg-blue-600 text-white text-xs px-2 py-1">
+                                        <Theater className="h-3 w-3 mr-1" />
+                                        Skuespiller
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-4 text-center">
+                                  <p className="text-xl font-semibold text-white group-hover:text-yellow-300 transition-colors">{actor?.name}</p>
+                                  <p className="text-sm text-yellow-400 mt-1 font-medium">som {role.character_name}</p>
+                                  {role.description && (
+                                    <p className="text-xs text-slate-400 mt-2 line-clamp-2">{role.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                            
+                            // Priority: User profile > Actor profile > No link
+                            if (hasUserProfile) {
+                              return (
+                                <Link key={`yellow-${role.id}`} href={`/profile/${actor.user.profile_slug}`}>
+                                  {cardContent}
+                                </Link>
+                              )
+                            } else if (hasActorProfile) {
+                              return (
+                                <Link key={`yellow-${role.id}`} href={`/actor/${actor.id}`}>
+                                  {cardContent}
+                                </Link>
+                              )
+                            }
+                            
+                            return (
+                              <div key={`yellow-${role.id}`}>
+                                {cardContent}
+                              </div>
+                            )
+                          })}
+                      </div>
+                      {roles.filter(role => role.yellow_actor).length === 0 && (
+                        <div className="text-center py-12 text-slate-400">
+                          <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Ingen roller er satt for {ensemble.yellow_team_name || 'gult lag'} ennå.</p>
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="blue" className="mt-8">
+                      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                        {roles
+                          .filter(role => role.blue_actor)
+                          .map((role: any, index: number) => {
+                            const actor = role.blue_actor
+                            const hasUserProfile = actor?.user_id && actor?.user?.profile_slug
+                            const hasActorProfile = actor?.id
+                            
+                            const cardContent = (
+                              <div className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-105">
+                                <div className="aspect-[3/4] relative bg-slate-700 overflow-hidden">
+                                  {actor?.photo_url ? (
+                                    <Image
+                                      src={actor.photo_url}
+                                      alt={actor.name}
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-900/20 to-blue-800/10">
+                                      <Users className="h-12 w-12 text-blue-600/50" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                  {role.importance === 'lead' && (
+                                    <div className="absolute top-3 right-3">
+                                      <Badge className="bg-amber-500 text-amber-50 font-semibold text-xs">⭐</Badge>
+                                    </div>
+                                  )}
+                                  {hasUserProfile && (
+                                    <div className="absolute top-3 left-3">
+                                      <Badge className="bg-green-600 text-white text-xs px-2 py-1">
+                                        <User className="h-3 w-3 mr-1" />
+                                        Profil
+                                      </Badge>
+                                    </div>
+                                  )}
+                                  {!hasUserProfile && hasActorProfile && (
+                                    <div className="absolute top-3 left-3">
+                                      <Badge className="bg-blue-600 text-white text-xs px-2 py-1">
+                                        <Theater className="h-3 w-3 mr-1" />
+                                        Skuespiller
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-4 text-center">
+                                  <p className="text-xl font-semibold text-white group-hover:text-blue-300 transition-colors">{actor?.name}</p>
+                                  <p className="text-sm text-blue-400 mt-1 font-medium">som {role.character_name}</p>
+                                  {role.description && (
+                                    <p className="text-xs text-slate-400 mt-2 line-clamp-2">{role.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                            
+                            // Priority: User profile > Actor profile > No link
+                            if (hasUserProfile) {
+                              return (
+                                <Link key={`blue-${role.id}`} href={`/profile/${actor.user.profile_slug}`}>
+                                  {cardContent}
+                                </Link>
+                              )
+                            } else if (hasActorProfile) {
+                              return (
+                                <Link key={`blue-${role.id}`} href={`/actor/${actor.id}`}>
+                                  {cardContent}
+                                </Link>
+                              )
+                            }
+                            
+                            return (
+                              <div key={`blue-${role.id}`}>
+                                {cardContent}
+                              </div>
+                            )
+                          })}
+                      </div>
+                      {roles.filter(role => role.blue_actor).length === 0 && (
+                        <div className="text-center py-12 text-slate-400">
+                          <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Ingen roller er satt for {ensemble.blue_team_name || 'blått lag'} ennå.</p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </section>
+              )}
+
               {/* Yellow Team Cast */}
-              {ensemble.yellow_cast && ensemble.yellow_cast.length > 0 && (
+              {false && ensemble.yellow_cast && ensemble.yellow_cast.length > 0 && (
                 <section className="mb-16">
                   <div className="flex items-center gap-4 mb-8">
                     <div className="h-1 w-12 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full"></div>
@@ -316,7 +918,7 @@ export default async function EnsemblePage({ params }: PageProps) {
               )}
 
               {/* Blue Team Cast */}
-              {ensemble.blue_cast && ensemble.blue_cast.length > 0 && (
+              {false && ensemble.blue_cast && ensemble.blue_cast.length > 0 && (
                 <section className="mb-16">
                   <div className="flex items-center gap-4 mb-8">
                     <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"></div>
@@ -478,18 +1080,6 @@ export default async function EnsemblePage({ params }: PageProps) {
                 </section>
               )}
 
-              {/* Synopsis Section */}
-              {ensemble.synopsis_long && (
-                <section className="mb-16">
-                  <h2 className="text-3xl font-bold mb-8 text-white">Om forestillingen</h2>
-                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-700">
-                    <div className="prose prose-lg prose-invert max-w-none">
-                      <p className="text-slate-200 leading-relaxed whitespace-pre-wrap">{ensemble.synopsis_long}</p>
-                    </div>
-                  </div>
-                </section>
-              )}
-
               {/* Additional Content Section */}
               <section className="mb-24">
                 <h2 className="text-3xl font-bold mb-8 text-white">Opplev teatermagi</h2>
@@ -581,6 +1171,30 @@ export default async function EnsemblePage({ params }: PageProps) {
             </div>
           </div>
         </section>
+        )}
+
+        {/* Enrollment Section - Show when stage is "Påmelding" */}
+        {ensemble.stage === "Påmelding" && (
+          <section className="bg-gradient-to-r from-green-600 to-green-500 text-white border-b">
+            <div className="container px-4 py-12">
+              <div className="max-w-2xl mx-auto text-center">
+                <div className="inline-flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full mb-6">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  <span className="font-semibold">Påmelding åpen nå</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Bli med i {ensemble.title}!</h2>
+                <p className="text-lg text-white/90 mb-8">
+                  Vi tar nå imot påmeldinger til dette ensemblet. Meld deg på for å være med på audition og bli en del av produksjonen.
+                </p>
+                <EnsembleSignupCard
+                  ensembleId={ensemble.id}
+                  ensembleSlug={ensemble.slug}
+                  ensembleTitle={ensemble.title}
+                  stage={ensemble.stage}
+                />
+              </div>
+            </div>
+          </section>
         )}
 
         {/* Action Buttons */}
@@ -747,29 +1361,6 @@ export default async function EnsemblePage({ params }: PageProps) {
                     </dl>
                   </CardContent>
                 </Card>
-
-                {/* Upcoming Shows */}
-                {shows.length > 0 && (
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Kommende forestillinger</h3>
-                      <div className="space-y-3">
-                        {shows.map((show) => (
-                          <div key={show.id} className="p-3 rounded-lg bg-muted">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                              <Calendar className="h-4 w-4" />
-                              {formatDate(show.show_datetime)}
-                            </div>
-                            <p className="text-sm font-medium mb-2">{show.venue?.name}</p>
-                            <Button asChild size="sm" className="w-full">
-                              <Link href={`/bestill/${show.id}`}>Kjøp billetter</Link>
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
 
                 {/* Recordings */}
                 {recordings.length > 0 && (

@@ -14,6 +14,10 @@ import type { Seat, SeatStatus, Show } from "@/lib/types"
 interface SeatSelectorProps {
   show: Show
   seats: Seat[]
+  isEarlyBird?: boolean
+  earlyBirdDiscount?: number
+  originalPrice?: number
+  currentPrice?: number
 }
 
 const normalizeStatus = (seat?: Seat): SeatStatus => {
@@ -24,7 +28,14 @@ const normalizeStatus = (seat?: Seat): SeatStatus => {
   return "available"
 }
 
-export function SeatSelector({ show, seats: initialSeats }: SeatSelectorProps) {
+export function SeatSelector({ 
+  show, 
+  seats: initialSeats,
+  isEarlyBird = false,
+  earlyBirdDiscount = 0,
+  originalPrice,
+  currentPrice
+}: SeatSelectorProps) {
   const [seats, setSeats] = useState<Seat[]>(initialSeats)
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -98,7 +109,14 @@ export function SeatSelector({ show, seats: initialSeats }: SeatSelectorProps) {
     [getSeatKey],
   )
 
-  const totalPrice = selectedSeats.reduce((sum, seat) => sum + (seat.price_nok || show.base_price_nok || 0), 0)
+  const getActualSeatPrice = (seat: Seat) => {
+    const basePrice = seat.price_nok || show.base_price_nok || 0
+    return isEarlyBird ? Math.max(0, basePrice - earlyBirdDiscount) : basePrice
+  }
+  
+  const totalPrice = selectedSeats.reduce((sum, seat) => sum + getActualSeatPrice(seat), 0)
+  const originalTotalPrice = selectedSeats.reduce((sum, seat) => sum + (seat.price_nok || show.base_price_nok || 0), 0)
+  const totalSavings = originalTotalPrice - totalPrice
 
   const seatsBySection = seats.reduce((acc, seat) => {
     if (!acc[seat.section]) acc[seat.section] = {}
@@ -237,7 +255,10 @@ export function SeatSelector({ show, seats: initialSeats }: SeatSelectorProps) {
                                       className={`w-5 h-5 rounded text-xs font-medium transition-colors flex items-center justify-center relative flex-shrink-0 ${getSeatColor(seat)}`}
                                       aria-label={`Rad ${seat.row}, Sete ${seat.number}, ${
                                         status === "reserved" ? "Reservert" : status === "sold" ? "Solgt" : "Ledig"
-                                      }, ${formatPrice(show.base_price_nok || seat.price_nok || 0)}`}
+                                      }, ${isEarlyBird 
+                                        ? `${formatPrice(getActualSeatPrice(seat))} (Early Bird - spar ${formatPrice(earlyBirdDiscount)}!)` 
+                                        : formatPrice(show.base_price_nok || seat.price_nok || 0)
+                                      }`}
                                       title={seat.blocked_reason || undefined}
                                     >
                                       {seat.number}
@@ -294,21 +315,59 @@ export function SeatSelector({ show, seats: initialSeats }: SeatSelectorProps) {
                 Valgte seter ({selectedSeats.length})
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {isEarlyBird && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="font-semibold text-green-800">Early Bird Tilbud!</span>
+                  </div>
+                  <p className="text-sm text-green-700">Spar {formatPrice(earlyBirdDiscount)} per billett ved å bestille tidlig.</p>
+                </div>
+              )}
+              
               {selectedSeats.length > 0 ? (
                 <div className="space-y-2">
-                  {selectedSeats.map((seat) => (
-                    <div key={seat.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <span>
-                        {seat.section}, Rad {seat.row}, Sete {seat.number}
-                      </span>
-                      <span className="font-medium">{formatPrice(seat.price_nok || show.base_price_nok || 0)}</span>
-                    </div>
-                  ))}
+                  {selectedSeats.map((seat) => {
+                    const originalSeatPrice = seat.price_nok || show.base_price_nok || 0
+                    const actualSeatPrice = getActualSeatPrice(seat)
+                    
+                    return (
+                      <div key={seat.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <span>
+                          {seat.section}, Rad {seat.row}, Sete {seat.number}
+                        </span>
+                        <div className="text-right">
+                          {isEarlyBird ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground line-through">{formatPrice(originalSeatPrice)}</span>
+                                <span className="font-medium text-green-600">{formatPrice(actualSeatPrice)}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="font-medium">{formatPrice(actualSeatPrice)}</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                   <div className="border-t pt-3 mt-3">
                     <div className="flex items-center justify-between text-lg font-bold">
                       <span>Totalt</span>
-                      <span className="text-primary">{formatPrice(totalPrice)}</span>
+                      <div className="text-right">
+                        {isEarlyBird && totalSavings > 0 ? (
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground line-through">{formatPrice(originalTotalPrice)}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-primary">{formatPrice(totalPrice)}</span>
+                              <span className="text-sm text-green-600 font-normal">(spar {formatPrice(totalSavings)})</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-primary">{formatPrice(totalPrice)}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
