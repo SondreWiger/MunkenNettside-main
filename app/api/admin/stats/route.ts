@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { getSupabaseServerClient, getSupabaseAdminClient } from "@/lib/supabase/server"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Check auth and admin role
     const serverSupabase = await getSupabaseServerClient()
@@ -15,6 +15,17 @@ export async function GET() {
     if (profile?.role !== 'admin') return NextResponse.json({ status: 'error', message: 'Ikke autorisert' }, { status: 403 })
 
     const supabase = adminSupabase
+
+    // In-memory cache (short-lived). Useful to avoid heavy DB queries when admins
+    // refresh repeatedly. TTL set to 30s.
+    const TTL = 30 * 1000 // milliseconds
+    // @ts-ignore
+    ;(globalThis as any).__admin_stats_cache = (globalThis as any).__admin_stats_cache || { ts: 0, data: null }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const cache = (globalThis as any).__admin_stats_cache
+    if (Date.now() - cache.ts < TTL && !new URL(request.url).searchParams.get('force')) {
+      return NextResponse.json(cache.data)
+    }
 
     // Total revenue by source: bookings, purchases (recordings), kurs
     const { data: bookingsRevenueData } = await supabase
@@ -132,7 +143,7 @@ export async function GET() {
     seatFill.sort((a, b) => b.sold - a.sold)
     const topShows = seatFill.slice(0, 10)
 
-    return NextResponse.json({
+    const result = {
       bookingRevenue,
       purchaseRevenue,
       kursRevenue,
@@ -142,7 +153,13 @@ export async function GET() {
       kursEnrollmentsCount: kursEnrollmentsCount || 0,
       ensembleEnrollmentsCount: ensembleEnrollmentsCount || 0,
       seatFill: topShows,
-    })
+    }
+
+    // Update cache
+    cache.ts = Date.now()
+    cache.data = result
+
+    return NextResponse.json(result)
   } catch (err) {
     console.error(err)
     return NextResponse.json({ error: String(err) }, { status: 500 })

@@ -2,7 +2,10 @@ import { getSupabaseServerClient, getSupabaseAdminClient } from '@/lib/supabase/
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils/booking'
 import { Badge } from '@/components/ui/badge'
-import { BarChart, TrendingUp } from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
+import dynamic from 'next/dynamic'
+const RevenueChartClient = dynamic(() => import('./components/RevenueChartClient').then(m => m.RevenueChartClient), { ssr: false })
+const TopShowsChartClient = dynamic(() => import('./components/TopShowsChartClient').then(m => m.TopShowsChartClient), { ssr: false })
 
 async function fetchStats() {
   const supabase = await getSupabaseServerClient()
@@ -186,7 +189,7 @@ export default async function AdminStatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{formatPrice(monthly.totalRevenue)}</div>
-            <div className="mt-3">{renderSparkline(revenueTimeseries.map((r: any) => r.total))}</div>
+            <div className="mt-3"><RevenueChartClient initialData={revenueTimeseries as any} /></div>
           </CardContent>
         </Card>
 
@@ -197,7 +200,7 @@ export default async function AdminStatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{formatPrice(monthly.bookingRevenue)}</div>
-            <div className="mt-3">{renderSparkline(revenueTimeseries.map((r: any) => r.bookings))}</div>
+            <div className="mt-3"><RevenueChartClient initialData={revenueTimeseries as any} /></div>
           </CardContent>
         </Card>
 
@@ -208,7 +211,7 @@ export default async function AdminStatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{formatPrice(monthly.purchasesRevenue)}</div>
-            <div className="mt-3">{renderSparkline(revenueTimeseries.map((r: any) => r.purchases))}</div>
+            <div className="mt-3"><RevenueChartClient initialData={revenueTimeseries as any} /></div>
           </CardContent>
         </Card>
 
@@ -261,19 +264,7 @@ export default async function AdminStatisticsPage() {
             <CardDescription>Toppliste basert på solgte seter</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4">
-              {seatFill.map((s: any) => (
-                <div key={s.id} className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-medium">{s.title}</div>
-                    <div className="text-sm text-muted-foreground">{s.sold}/{s.total} ({Math.round(s.fill_rate)}%)</div>
-                  </div>
-                  <div className="w-1/2 bg-gray-100 rounded-full h-3 overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: `${Math.min(100, Math.round(s.fill_rate))}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TopShowsChartClient initialData={seatFill as any} />
           </CardContent>
         </Card>
       </div>
