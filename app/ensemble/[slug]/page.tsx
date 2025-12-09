@@ -158,7 +158,7 @@ export default async function EnsemblePage({ params }: PageProps) {
         {/* Show production layout first if in production */}
         {showProductionLayout && (
           /* IMDB Style Layout for Productions in Progress */
-          <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+          <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 text-white min-h-screen">
             {/* Hero Image Banner */}
             {ensemble.thumbnail_url && (
               <div className="relative h-96 sm:h-[500px] md:h-[600px] w-full overflow-hidden">
@@ -246,12 +246,15 @@ export default async function EnsemblePage({ params }: PageProps) {
               {/* Gallery */}
               {ensemble.gallery_images && ensemble.gallery_images.length > 0 && (
                 <section className="mb-16 relative z-1000">
-                  <h2 className="text-3xl font-bold mb-8 text-white">Galeri</h2>
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="h-1 w-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"></div>
+                    <h2 className="text-3xl font-bold text-white">Bak kulissene</h2>
+                  </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {ensemble.gallery_images.map((image: any, index: number) => (
                       <div
                         key={index}
-                        className="group relative aspect-[4/3] rounded-lg overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 bg-slate-800 border border-slate-700 hover:border-slate-600"
+                        className="group relative aspect-[4/3] rounded-xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 bg-slate-800 border border-slate-700 hover:border-slate-600 hover:scale-105"
                       >
                         <Image
                           src={typeof image === "string" ? image : image.url}
@@ -259,6 +262,12 @@ export default async function EnsemblePage({ params }: PageProps) {
                           fill
                           className="object-cover group-hover:scale-110 transition-transform duration-500"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        {typeof image !== "string" && image.caption && (
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <p className="text-sm font-medium">{image.caption}</p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -268,13 +277,18 @@ export default async function EnsemblePage({ params }: PageProps) {
               {/* Yellow Team Cast */}
               {ensemble.yellow_cast && ensemble.yellow_cast.length > 0 && (
                 <section className="mb-16">
-                  <h2 className="text-3xl font-bold mb-2 text-white">{ensemble.yellow_team_name}</h2>
-                  <p className="text-slate-400 mb-8 text-lg font-semibold">Rollebesetning</p>
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="h-1 w-12 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full"></div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-white">{ensemble.yellow_team_name}</h2>
+                      <p className="text-slate-400 text-lg font-medium">Rollebesetning</p>
+                    </div>
+                  </div>
                   <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                     {ensemble.yellow_cast.map((member: CastMember, index: number) => (
                       <div
                         key={index}
-                        className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg overflow-hidden border border-slate-700 hover:border-yellow-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/20"
+                        className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-slate-700 hover:border-yellow-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-500/20 hover:scale-105"
                       >
                         <div className="aspect-[3/4] relative bg-slate-700 overflow-hidden">
                           {member.photo_url ? (
@@ -282,17 +296,18 @@ export default async function EnsemblePage({ params }: PageProps) {
                               src={member.photo_url}
                               alt={member.name}
                               fill
-                              className="object-cover group-hover:scale-110 transition-transform duration-300"
+                              className="object-cover group-hover:scale-110 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Users className="h-12 w-12 text-slate-600" />
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-900/20 to-yellow-800/10">
+                              <Users className="h-12 w-12 text-yellow-600/50" />
                             </div>
                           )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
                         <div className="p-4 text-center">
-                          <p className="text-xl font-semibold text-white">{member.name}</p>
-                          <p className="text-sm text-slate-400">{member.role}</p>
+                          <p className="text-xl font-semibold text-white group-hover:text-yellow-300 transition-colors">{member.name}</p>
+                          <p className="text-sm text-slate-400 mt-1">{member.role}</p>
                         </div>
                       </div>
                     ))}
@@ -303,13 +318,18 @@ export default async function EnsemblePage({ params }: PageProps) {
               {/* Blue Team Cast */}
               {ensemble.blue_cast && ensemble.blue_cast.length > 0 && (
                 <section className="mb-16">
-                  <h2 className="text-3xl font-bold mb-2 text-white">{ensemble.blue_team_name}</h2>
-                  <p className="text-slate-400 mb-8 text-lg font-semibold">Rollebesetning</p>
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"></div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-white">{ensemble.blue_team_name}</h2>
+                      <p className="text-slate-400 text-lg font-medium">Rollebesetning</p>
+                    </div>
+                  </div>
                   <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                     {ensemble.blue_cast.map((member: CastMember, index: number) => (
                       <div
                         key={index}
-                        className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg overflow-hidden border border-slate-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
+                        className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-105"
                       >
                         <div className="aspect-[3/4] relative bg-slate-700 overflow-hidden">
                           {member.photo_url ? (
@@ -317,17 +337,18 @@ export default async function EnsemblePage({ params }: PageProps) {
                               src={member.photo_url}
                               alt={member.name}
                               fill
-                              className="object-cover group-hover:scale-110 transition-transform duration-300"
+                              className="object-cover group-hover:scale-110 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Users className="h-12 w-12 text-slate-600" />
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-900/20 to-blue-800/10">
+                              <Users className="h-12 w-12 text-blue-600/50" />
                             </div>
                           )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
                         <div className="p-4 text-center">
-                          <p className="text-xl font-semibold text-white">{member.name}</p>
-                          <p className="text-sm text-slate-400">{member.role}</p>
+                          <p className="text-xl font-semibold text-white group-hover:text-blue-300 transition-colors">{member.name}</p>
+                          <p className="text-sm text-slate-400 mt-1">{member.role}</p>
                         </div>
                       </div>
                     ))}
@@ -436,6 +457,74 @@ export default async function EnsemblePage({ params }: PageProps) {
                   </div>
                 </section>
               )}
+
+              {/* Crew Section */}
+              {ensemble.crew && ensemble.crew.length > 0 && (
+                <section className="mb-16">
+                  <h2 className="text-3xl font-bold mb-8 text-white">Filmteam og produksjon</h2>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {ensemble.crew.map((member: any, index: number) => (
+                      <div
+                        key={index}
+                        className="group bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700 hover:border-slate-500 transition-all duration-300"
+                      >
+                        <div className="text-center">
+                          <p className="text-xl font-semibold text-white">{member.name}</p>
+                          <p className="text-sm text-slate-400 mt-1">{member.role}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Synopsis Section */}
+              {ensemble.synopsis_long && (
+                <section className="mb-16">
+                  <h2 className="text-3xl font-bold mb-8 text-white">Om forestillingen</h2>
+                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-700">
+                    <div className="prose prose-lg prose-invert max-w-none">
+                      <p className="text-slate-200 leading-relaxed whitespace-pre-wrap">{ensemble.synopsis_long}</p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Additional Content Section */}
+              <section className="mb-24">
+                <h2 className="text-3xl font-bold mb-8 text-white">Opplev teatermagi</h2>
+                <div className="grid gap-8 md:grid-cols-2">
+                  <div className="bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl p-8 border border-blue-700/30">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-blue-600/20 rounded-lg">
+                        <Users className="h-8 w-8 text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-3">Profesjonell produksjon</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                          Opplev høy kvalitet teater med dedikerte skuespillere og profesjonell produksjon. 
+                          Hver forestilling leveres med lidenskap og omtanke for publikum.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-purple-900/30 to-purple-800/20 rounded-xl p-8 border border-purple-700/30">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-purple-600/20 rounded-lg">
+                        <Film className="h-8 w-8 text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-3">Digitale opptak</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                          Ikke mulighet til å komme på forestilling? Våre profesjonelle opptak lar deg oppleve 
+                          magien hjemmefra, når det passer deg best.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         )}
