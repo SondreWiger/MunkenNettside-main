@@ -25,7 +25,7 @@ export function RevenueChartClient({ initialData }: { initialData?: SeriesPoint[
     const fetchData = async () => {
       setLoading(true)
       try {
-        const res = await fetch('/api/admin/stats')
+  const res = await fetch('/api/admin/stats', { credentials: 'include' })
         if (!res.ok) return
         const json = await res.json()
         if (!mounted) return

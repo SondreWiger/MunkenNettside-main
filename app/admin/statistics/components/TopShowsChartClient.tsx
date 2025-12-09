@@ -10,7 +10,7 @@ export function TopShowsChartClient({ initialData }: { initialData?: any[] }) {
     let mounted = true
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/admin/stats')
+  const res = await fetch('/api/admin/stats', { credentials: 'include' })
         if (!res.ok) return
         const json = await res.json()
         if (!mounted) return
