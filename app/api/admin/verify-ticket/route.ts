@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
           `,
           )
           .eq("id", bookingId)
-          .single()
+          .maybeSingle()
 
         if (error) {
           console.error("[Verify Ticket] ID lookup error:", error.message)
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
         `,
         )
         .eq("booking_reference", bookingReference)
-        .single()
+        .maybeSingle()
 
       if (error) {
         console.error("[Verify Ticket] Reference lookup error:", error.message, "looking for:", bookingReference)
