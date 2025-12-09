@@ -57,6 +57,7 @@ interface Ensemble {
   genre: string[]
   language: string
   recording_price_nok: number
+  default_ticket_price_nok: number
   is_published: boolean
   featured: boolean
 }
@@ -312,7 +313,8 @@ export default function EditEnsemblePage() {
                 <Textarea
                   value={ensemble.synopsis_long || ""}
                   onChange={(e) => setEnsemble({ ...ensemble, synopsis_long: e.target.value })}
-                  rows={5}
+                  rows={8}
+                  placeholder="Skriv en utfyllende beskrivelse av forestillingen, handlingen, temaer og karakterer..."
                 />
               </div>
 
@@ -363,14 +365,52 @@ export default function EditEnsemblePage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Opptakspris (NOK)</Label>
+                  <Label>Språk</Label>
                   <Input
-                    type="number"
-                    value={ensemble.recording_price_nok || ""}
-                    onChange={(e) =>
-                      setEnsemble({ ...ensemble, recording_price_nok: Number.parseFloat(e.target.value) })
-                    }
+                    value={ensemble.language || "Norsk"}
+                    onChange={(e) => setEnsemble({ ...ensemble, language: e.target.value })}
                   />
+                </div>
+              </div>
+
+              {/* Pricing Section */}
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <h3 className="text-lg font-semibold">Prissetting</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Standard billettpris (NOK)</Label>
+                    <Input
+                      type="number"
+                      value={ensemble.default_ticket_price_nok || ""}
+                      onChange={(e) =>
+                        setEnsemble({ 
+                          ...ensemble, 
+                          default_ticket_price_nok: e.target.value === "" ? 0 : Number.parseFloat(e.target.value) 
+                        })
+                      }
+                      placeholder="250"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Brukes som standardpris når nye forestillinger opprettes
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Opptakspris (NOK)</Label>
+                    <Input
+                      type="number"
+                      value={ensemble.recording_price_nok || ""}
+                      onChange={(e) =>
+                        setEnsemble({ 
+                          ...ensemble, 
+                          recording_price_nok: e.target.value === "" ? 0 : Number.parseFloat(e.target.value) 
+                        })
+                      }
+                      placeholder="100"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pris for digitale opptak av forestillingen
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -690,23 +730,6 @@ export default function EditEnsemblePage() {
                     onChange={(e) => setNewRecording({ ...newRecording, duration: Number.parseInt(e.target.value) })}
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Opptakspris (NOK)</Label>
-                <Input
-                  type="number"
-                  value={ensemble.recording_price_nok ?? ""}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    const parsed = raw === "" ? 0 : Number.parseFloat(raw)
-                    setEnsemble({
-                      ...ensemble,
-                      recording_price_nok: Number.isNaN(parsed) ? 0 : parsed,
-                    })
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">Denne prisen vises til brukere når de kjøper opptak.</p>
               </div>
 
               <Button onClick={addRecording} disabled={!newRecording.jottacloud_embed_url}>

@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS public.ensembles (
   awards JSONB DEFAULT '[]'::jsonb,
   press_quotes JSONB DEFAULT '[]'::jsonb,
   recording_price_nok DECIMAL(10,2) DEFAULT 0,
+  default_ticket_price_nok DECIMAL(10,2) DEFAULT 250,
   is_published BOOLEAN DEFAULT FALSE,
   featured BOOLEAN DEFAULT FALSE,
   view_count INTEGER DEFAULT 0,

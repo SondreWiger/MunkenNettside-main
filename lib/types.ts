@@ -95,6 +95,7 @@ export interface Ensemble {
   awards: Award[]
   press_quotes: PressQuote[]
   recording_price_nok: number
+  default_ticket_price_nok: number
   is_published: boolean
   featured: boolean
   view_count: number
