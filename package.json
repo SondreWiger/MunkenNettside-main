@@ -7,7 +7,8 @@
     "dev": "next dev",
     "lint": "eslint .",
     "start": "node server.js",
-    "dist": "rm -rf dist && next build && mkdir -p dist && cp -R .next package.json server.js public next.config.mjs index.html dist/ && echo '✅ Dist folder created at ./dist with index.html'"
+  "dist": "rm -rf dist && next build && mkdir -p dist && cp -R .next package.json server.js public next.config.mjs index.html dist/ && echo '✅ Dist folder created at ./dist with index.html'",
+  "test:seat:concurrency": "node ./scripts/test-seat-concurrency.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
