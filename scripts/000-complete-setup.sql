@@ -25,21 +25,110 @@ CREATE TABLE IF NOT EXISTS public.users (
   bio_short TEXT,
   avatar_url TEXT,
   cover_image_url TEXT,
+  banner_url TEXT, -- User's custom banner image
   profile_tint TEXT DEFAULT '#6366f1', -- Hex color for profile customization
+  banner_style TEXT DEFAULT 'gradient' CHECK (banner_style IN ('gradient', 'solid', 'image', 'pattern')),
+  theme_preference TEXT DEFAULT 'default' CHECK (theme_preference IN ('default', 'minimal', 'vibrant', 'dark', 'light')),
+  profile_border_color TEXT DEFAULT '#e5e7eb',
+  profile_text_color TEXT DEFAULT '#000000',
+  custom_css TEXT, -- Allow advanced users to add custom CSS
   website_url TEXT,
   instagram_url TEXT,
   facebook_url TEXT,
   linkedin_url TEXT,
   twitter_url TEXT,
+  github_url TEXT,
+  youtube_url TEXT,
+  tiktok_url TEXT,
   location TEXT,
   occupation TEXT,
   favorite_quote TEXT,
+  interests TEXT[], -- Array of interests/hobbies
+  skills TEXT[], -- Array of skills
+  languages_spoken TEXT[], -- Languages the user speaks
+  achievements JSONB DEFAULT '[]'::jsonb, -- Array of achievement objects
   is_public BOOLEAN DEFAULT false,
   show_email BOOLEAN DEFAULT false,
   show_phone BOOLEAN DEFAULT false,
+  show_social_links BOOLEAN DEFAULT true,
+  show_achievements BOOLEAN DEFAULT true,
+  show_featured_roles BOOLEAN DEFAULT true,
+  paypal_email TEXT, -- Connected PayPal account email
+  paypal_payer_id TEXT, -- PayPal payer ID for billing agreements
+  paypal_connected_at TIMESTAMPTZ, -- When PayPal was connected
+  -- Family account fields
+  account_type TEXT NOT NULL DEFAULT 'standalone' CHECK (account_type IN ('standalone', 'parent', 'kid')),
+  date_of_birth DATE, -- Required for kid accounts
+  family_connection_code TEXT UNIQUE, -- 8-char code for connecting family accounts
+  family_code_expires_at TIMESTAMPTZ, -- When the connection code expires
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Admin onboarding columns
+ALTER TABLE IF EXISTS public.users
+  ADD COLUMN IF NOT EXISTS admin_uuid UUID UNIQUE,
+  ADD COLUMN IF NOT EXISTS admin_verified BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS admin_uuid_created_at TIMESTAMPTZ;
+
+
+-- =============================================
+-- 1B. FAMILY CONNECTIONS TABLE
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.family_connections (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parent_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  child_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending', 'removed')),
+  enrollment_permission TEXT NOT NULL DEFAULT 'request' CHECK (enrollment_permission IN ('blocked', 'request', 'allowed')),
+  connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(parent_id, child_id),
+  CHECK (parent_id != child_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_family_connections_parent ON public.family_connections(parent_id);
+CREATE INDEX IF NOT EXISTS idx_family_connections_child ON public.family_connections(child_id);
+
+
+-- =============================================
+-- 1C. ENROLLMENT REQUESTS TABLE
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.enrollment_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  child_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  parent_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  ensemble_id UUID NOT NULL REFERENCES public.ensembles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  request_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(child_id, ensemble_id, parent_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_enrollment_requests_child ON public.enrollment_requests(child_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_requests_parent ON public.enrollment_requests(parent_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_requests_ensemble ON public.enrollment_requests(ensemble_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_requests_status ON public.enrollment_requests(status);
+
+-- =============================================
+-- ADMIN VERIFICATIONS TABLE
+-- Used for admin onboarding: stores verification codes sent to admin users
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.admin_verifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  code TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_verifications_user ON public.admin_verifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_verifications_code ON public.admin_verifications(code);
 
 
 -- =============================================
@@ -73,6 +162,7 @@ CREATE TABLE IF NOT EXISTS public.ensembles (
   awards JSONB DEFAULT '[]'::jsonb,
   press_quotes JSONB DEFAULT '[]'::jsonb,
   recording_price_nok DECIMAL(10,2) DEFAULT 0,
+  participation_price_nok DECIMAL(10,2) DEFAULT 0, -- Price to join the ensemble
   default_ticket_price_nok DECIMAL(10,2) DEFAULT 250,
   is_published BOOLEAN DEFAULT FALSE,
   featured BOOLEAN DEFAULT FALSE,
@@ -338,9 +428,15 @@ CREATE TABLE IF NOT EXISTS public.ensemble_enrollments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   ensemble_id UUID NOT NULL REFERENCES public.ensembles(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'yellow', 'blue', 'rejected')),
+  registered_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL, -- Parent who registered on behalf of child
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'yellow', 'blue', 'rejected', 'payment_pending')),
   role TEXT,
+  vipps_order_id TEXT, -- Vipps payment reference
+  amount_paid_nok DECIMAL(10,2), -- Amount paid for participation
+  enrollment_reference TEXT UNIQUE, -- Unique reference for this enrollment
+  notification_read BOOLEAN DEFAULT FALSE, -- Whether user has seen the status notification
   enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  payment_completed_at TIMESTAMPTZ, -- When payment was confirmed
   reviewed_at TIMESTAMPTZ,
   reviewed_by_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -512,29 +608,66 @@ BEGIN
   
   RETURN final_slug;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
   user_slug TEXT;
+  v_account_type TEXT;
+  v_date_of_birth DATE;
 BEGIN
   -- Generate slug using the helper function
-  user_slug := generate_user_slug(
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'bruker'),
-    NEW.id
-  );
+  BEGIN
+    user_slug := generate_user_slug(
+      COALESCE(NEW.raw_user_meta_data->>'full_name', 'bruker'),
+      NEW.id
+    );
+  EXCEPTION WHEN OTHERS THEN
+    -- Fallback to simple slug if generation fails
+    user_slug := 'bruker-' || REPLACE(NEW.id::text, '-', '');
+  END;
 
-  INSERT INTO public.users (id, email, full_name, phone, role, profile_slug)
+  -- Parse account type with validation
+  v_account_type := COALESCE(NEW.raw_user_meta_data->>'account_type', 'standalone');
+  IF v_account_type NOT IN ('standalone', 'parent', 'kid') THEN
+    v_account_type := 'standalone';
+  END IF;
+
+  -- Parse date of birth safely
+  BEGIN
+    v_date_of_birth := (NEW.raw_user_meta_data->>'date_of_birth')::DATE;
+  EXCEPTION WHEN OTHERS THEN
+    v_date_of_birth := NULL;
+  END;
+
+  -- Insert user record
+  INSERT INTO public.users (
+    id, 
+    email, 
+    full_name, 
+    phone, 
+    role, 
+    profile_slug,
+    account_type,
+    date_of_birth
+  )
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', 'Ukjent'),
     NEW.raw_user_meta_data->>'phone',
     'customer',
-    user_slug
+    user_slug,
+    v_account_type,
+    v_date_of_birth
   )
   ON CONFLICT (id) DO NOTHING;
+  
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- Log error but don't fail the auth.users insert
+  RAISE WARNING 'Error in handle_new_user: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -800,9 +933,23 @@ CREATE POLICY "Admins can view all ensemble enrollments" ON public.ensemble_enro
     )
   );
 
+DROP POLICY IF EXISTS "Public can view ensemble enrollments for public profiles" ON public.ensemble_enrollments;
+CREATE POLICY "Public can view ensemble enrollments for public profiles" ON public.ensemble_enrollments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.users 
+      WHERE users.id = ensemble_enrollments.user_id 
+      AND users.is_public = true
+    )
+  );
+
 DROP POLICY IF EXISTS "Users can insert own ensemble enrollments" ON public.ensemble_enrollments;
 CREATE POLICY "Users can insert own ensemble enrollments" ON public.ensemble_enrollments
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Anyone can view enrollments with valid reference" ON public.ensemble_enrollments;
+CREATE POLICY "Anyone can view enrollments with valid reference" ON public.ensemble_enrollments
+  FOR SELECT USING (enrollment_reference IS NOT NULL);
 
 DROP POLICY IF EXISTS "Admins can update ensemble enrollments" ON public.ensemble_enrollments;
 CREATE POLICY "Admins can update ensemble enrollments" ON public.ensemble_enrollments
@@ -838,6 +985,77 @@ CREATE POLICY "Admins can manage ensemble team members" ON public.ensemble_team_
 
 
 -- =============================================
+-- RLS POLICIES - FAMILY CONNECTIONS
+-- =============================================
+ALTER TABLE public.family_connections ENABLE ROW LEVEL SECURITY;
+
+-- Users can view connections where they are parent or child
+DROP POLICY IF EXISTS "Users can view own family connections" ON public.family_connections;
+CREATE POLICY "Users can view own family connections" ON public.family_connections
+  FOR SELECT USING (auth.uid() = parent_id OR auth.uid() = child_id);
+
+-- Parents can insert connections (when child uses their code)
+DROP POLICY IF EXISTS "Users can create family connections" ON public.family_connections;
+CREATE POLICY "Users can create family connections" ON public.family_connections
+  FOR INSERT WITH CHECK (auth.uid() = child_id);
+
+-- Users can update their own connections (e.g., to remove)
+DROP POLICY IF EXISTS "Users can update own family connections" ON public.family_connections;
+CREATE POLICY "Users can update own family connections" ON public.family_connections
+  FOR UPDATE USING (auth.uid() = parent_id OR auth.uid() = child_id);
+
+-- Users can delete their own connections
+DROP POLICY IF EXISTS "Users can delete own family connections" ON public.family_connections;
+CREATE POLICY "Users can delete own family connections" ON public.family_connections
+  FOR DELETE USING (auth.uid() = parent_id OR auth.uid() = child_id);
+
+-- Admins can manage all family connections
+DROP POLICY IF EXISTS "Admins can manage family connections" ON public.family_connections;
+CREATE POLICY "Admins can manage family connections" ON public.family_connections
+  FOR ALL USING (is_admin());
+
+-- Parents can view connected children's profiles
+DROP POLICY IF EXISTS "Parents can view connected children profiles" ON public.users;
+CREATE POLICY "Parents can view connected children profiles" ON public.users
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.family_connections 
+      WHERE family_connections.parent_id = auth.uid() 
+      AND family_connections.child_id = users.id
+      AND family_connections.status = 'active'
+    )
+  );
+
+
+-- =============================================
+-- RLS POLICIES - ENROLLMENT REQUESTS
+-- =============================================
+ALTER TABLE public.enrollment_requests ENABLE ROW LEVEL SECURITY;
+
+-- Parents can view requests for their children
+DROP POLICY IF EXISTS "Parents can view enrollment requests" ON public.enrollment_requests;
+CREATE POLICY "Parents can view enrollment requests" ON public.enrollment_requests
+  FOR SELECT USING (
+    parent_id = auth.uid() OR child_id = auth.uid()
+  );
+
+-- Children can create enrollment requests
+DROP POLICY IF EXISTS "Children can create enrollment requests" ON public.enrollment_requests;
+CREATE POLICY "Children can create enrollment requests" ON public.enrollment_requests
+  FOR INSERT WITH CHECK (child_id = auth.uid());
+
+-- Parents can update (approve/reject) their children's requests
+DROP POLICY IF EXISTS "Parents can update enrollment requests" ON public.enrollment_requests;
+CREATE POLICY "Parents can update enrollment requests" ON public.enrollment_requests
+  FOR UPDATE USING (parent_id = auth.uid());
+
+-- Admins can manage all requests
+DROP POLICY IF EXISTS "Admins can manage enrollment requests" ON public.enrollment_requests;
+CREATE POLICY "Admins can manage enrollment requests" ON public.enrollment_requests
+  FOR ALL USING (is_admin());
+
+
+-- =============================================
 -- USER CREATION TRIGGER
 -- =============================================
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -869,26 +1087,109 @@ INSERT INTO public.venues (id, name, address, postal_code, city, capacity, seat_
     'Teaterveien 1',
     '0123',
     'Oslo',
-    150,
+    100,
     '{
-      "sections": [
-        {
-          "name": "Parkett",
-          "rows": [
-            {"number": "A", "seats": [1,2,3,4,5,6,7,8,9,10]},
-            {"number": "B", "seats": [1,2,3,4,5,6,7,8,9,10]},
-            {"number": "C", "seats": [1,2,3,4,5,6,7,8,9,10]},
-            {"number": "D", "seats": [1,2,3,4,5,6,7,8,9,10]},
-            {"number": "E", "seats": [1,2,3,4,5,6,7,8,9,10]}
-          ]
-        },
-        {
-          "name": "Balkong",
-          "rows": [
-            {"number": "F", "seats": [1,2,3,4,5,6,7,8]},
-            {"number": "G", "seats": [1,2,3,4,5,6,7,8]}
-          ]
-        }
+      "seats": [
+        {"row": "A", "number": 1, "type": "available"},
+        {"row": "A", "number": 2, "type": "available"},
+        {"row": "A", "number": 3, "type": "available"},
+        {"row": "A", "number": 4, "type": "available"},
+        {"row": "A", "number": 5, "type": "available"},
+        {"row": "A", "number": 6, "type": "available"},
+        {"row": "A", "number": 7, "type": "available"},
+        {"row": "A", "number": 8, "type": "available"},
+        {"row": "A", "number": 9, "type": "available"},
+        {"row": "A", "number": 10, "type": "available"},
+        {"row": "B", "number": 1, "type": "available"},
+        {"row": "B", "number": 2, "type": "available"},
+        {"row": "B", "number": 3, "type": "available"},
+        {"row": "B", "number": 4, "type": "available"},
+        {"row": "B", "number": 5, "type": "available"},
+        {"row": "B", "number": 6, "type": "available"},
+        {"row": "B", "number": 7, "type": "available"},
+        {"row": "B", "number": 8, "type": "available"},
+        {"row": "B", "number": 9, "type": "available"},
+        {"row": "B", "number": 10, "type": "available"},
+        {"row": "C", "number": 1, "type": "available"},
+        {"row": "C", "number": 2, "type": "available"},
+        {"row": "C", "number": 3, "type": "available"},
+        {"row": "C", "number": 4, "type": "available"},
+        {"row": "C", "number": 5, "type": "available"},
+        {"row": "C", "number": 6, "type": "available"},
+        {"row": "C", "number": 7, "type": "available"},
+        {"row": "C", "number": 8, "type": "available"},
+        {"row": "C", "number": 9, "type": "available"},
+        {"row": "C", "number": 10, "type": "available"},
+        {"row": "D", "number": 1, "type": "available"},
+        {"row": "D", "number": 2, "type": "available"},
+        {"row": "D", "number": 3, "type": "available"},
+        {"row": "D", "number": 4, "type": "available"},
+        {"row": "D", "number": 5, "type": "available"},
+        {"row": "D", "number": 6, "type": "available"},
+        {"row": "D", "number": 7, "type": "available"},
+        {"row": "D", "number": 8, "type": "available"},
+        {"row": "D", "number": 9, "type": "available"},
+        {"row": "D", "number": 10, "type": "available"},
+        {"row": "E", "number": 1, "type": "available"},
+        {"row": "E", "number": 2, "type": "available"},
+        {"row": "E", "number": 3, "type": "available"},
+        {"row": "E", "number": 4, "type": "available"},
+        {"row": "E", "number": 5, "type": "available"},
+        {"row": "E", "number": 6, "type": "available"},
+        {"row": "E", "number": 7, "type": "available"},
+        {"row": "E", "number": 8, "type": "available"},
+        {"row": "E", "number": 9, "type": "available"},
+        {"row": "E", "number": 10, "type": "available"},
+        {"row": "F", "number": 1, "type": "available"},
+        {"row": "F", "number": 2, "type": "available"},
+        {"row": "F", "number": 3, "type": "available"},
+        {"row": "F", "number": 4, "type": "available"},
+        {"row": "F", "number": 5, "type": "available"},
+        {"row": "F", "number": 6, "type": "available"},
+        {"row": "F", "number": 7, "type": "available"},
+        {"row": "F", "number": 8, "type": "available"},
+        {"row": "F", "number": 9, "type": "available"},
+        {"row": "F", "number": 10, "type": "available"},
+        {"row": "G", "number": 1, "type": "available"},
+        {"row": "G", "number": 2, "type": "available"},
+        {"row": "G", "number": 3, "type": "available"},
+        {"row": "G", "number": 4, "type": "available"},
+        {"row": "G", "number": 5, "type": "available"},
+        {"row": "G", "number": 6, "type": "available"},
+        {"row": "G", "number": 7, "type": "available"},
+        {"row": "G", "number": 8, "type": "available"},
+        {"row": "G", "number": 9, "type": "available"},
+        {"row": "G", "number": 10, "type": "available"},
+        {"row": "H", "number": 1, "type": "available"},
+        {"row": "H", "number": 2, "type": "available"},
+        {"row": "H", "number": 3, "type": "available"},
+        {"row": "H", "number": 4, "type": "available"},
+        {"row": "H", "number": 5, "type": "available"},
+        {"row": "H", "number": 6, "type": "available"},
+        {"row": "H", "number": 7, "type": "available"},
+        {"row": "H", "number": 8, "type": "available"},
+        {"row": "H", "number": 9, "type": "available"},
+        {"row": "H", "number": 10, "type": "available"},
+        {"row": "I", "number": 1, "type": "available"},
+        {"row": "I", "number": 2, "type": "available"},
+        {"row": "I", "number": 3, "type": "available"},
+        {"row": "I", "number": 4, "type": "available"},
+        {"row": "I", "number": 5, "type": "available"},
+        {"row": "I", "number": 6, "type": "available"},
+        {"row": "I", "number": 7, "type": "available"},
+        {"row": "I", "number": 8, "type": "available"},
+        {"row": "I", "number": 9, "type": "available"},
+        {"row": "I", "number": 10, "type": "available"},
+        {"row": "J", "number": 1, "type": "available"},
+        {"row": "J", "number": 2, "type": "available"},
+        {"row": "J", "number": 3, "type": "available"},
+        {"row": "J", "number": 4, "type": "available"},
+        {"row": "J", "number": 5, "type": "available"},
+        {"row": "J", "number": 6, "type": "available"},
+        {"row": "J", "number": 7, "type": "available"},
+        {"row": "J", "number": 8, "type": "available"},
+        {"row": "J", "number": 9, "type": "available"},
+        {"row": "J", "number": 10, "type": "available"}
       ]
     }'::jsonb,
     'Rullestoltilgang via hovedinngang. HC-toalett tilgjengelig.',
@@ -984,14 +1285,6 @@ ALTER TABLE IF EXISTS public.bookings
 
 
 -- =============================================
--- DELETE ALL FORESTILLINGER (SHOWS)
--- =============================================
--- This will delete all shows and associated seats
-DELETE FROM public.seats WHERE show_id IN (SELECT id FROM public.shows);
-DELETE FROM public.shows;
-
-
--- =============================================
 -- ACTORS AND ROLES ENHANCEMENT
 -- Add actors table and update ensemble cast structure
 -- =============================================
@@ -1074,6 +1367,75 @@ DROP TRIGGER IF EXISTS update_roles_updated_at ON public.roles;
 CREATE TRIGGER update_roles_updated_at 
   BEFORE UPDATE ON public.roles 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+-- =============================================
+-- FEATURED ROLES - Actor Showcase
+-- Allow actors to pin their proudest roles
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.featured_roles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  role_id UUID NOT NULL REFERENCES public.roles(id) ON DELETE CASCADE,
+  display_order INTEGER DEFAULT 0,
+  notes TEXT, -- Personal notes about why this role is special
+  featured_image_url TEXT, -- Optional custom image for this featured role
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, role_id) -- Can't feature the same role twice
+);
+
+-- Index for performance
+CREATE INDEX IF NOT EXISTS idx_featured_roles_user_id ON public.featured_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_featured_roles_display_order ON public.featured_roles(user_id, display_order);
+
+-- Row Level Security
+ALTER TABLE public.featured_roles ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can view featured roles
+DROP POLICY IF EXISTS "Anyone can view featured roles" ON public.featured_roles;
+CREATE POLICY "Anyone can view featured roles" ON public.featured_roles
+  FOR SELECT USING (true);
+
+-- Users can manage their own featured roles
+DROP POLICY IF EXISTS "Users can manage their own featured roles" ON public.featured_roles;
+CREATE POLICY "Users can manage their own featured roles" ON public.featured_roles
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_featured_roles_updated_at ON public.featured_roles;
+
+
+-- =============================================
+-- FIX: Ensure ensemble_enrollments has correct status constraint
+-- =============================================
+-- Drop the old constraint if it exists (without payment_pending)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'ensemble_enrollments_status_check' 
+    AND contype = 'c'
+  ) THEN
+    ALTER TABLE public.ensemble_enrollments DROP CONSTRAINT ensemble_enrollments_status_check;
+  END IF;
+END $$;
+
+-- Add the correct constraint with all status values including payment_pending
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'ensemble_enrollments_status_check'
+  ) THEN
+    ALTER TABLE public.ensemble_enrollments ADD CONSTRAINT ensemble_enrollments_status_check 
+      CHECK (status IN ('pending', 'yellow', 'blue', 'rejected', 'payment_pending', 'confirmed'));
+  END IF;
+END $$;
+
+
+-- =============================================
+-- END OF SCHEMA
+-- =============================================
 
 -- Now add the foreign key constraint to users table (only if it doesn't exist)
 DO $$ 

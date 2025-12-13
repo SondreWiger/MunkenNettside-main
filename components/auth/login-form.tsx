@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
@@ -19,9 +19,25 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAdminVerification, setIsAdminVerification] = useState(false)
+  const [isCodeSent, setIsCodeSent] = useState(false)
+  const [adminUuidInput, setAdminUuidInput] = useState('')
+  const [adminCodeInput, setAdminCodeInput] = useState('')
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/dashboard"
   const supabase = getSupabaseBrowserClient()
+
+  // Prefill admin UUID from previous registration if present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const pending = localStorage.getItem('pendingAdminUuid')
+        if (pending) setAdminUuidInput(pending)
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,6 +57,19 @@ export function LoginForm() {
           setError(error.message)
         }
         return
+      }
+
+      // Check if admin verification is required for this user
+      try {
+        const statusRes = await fetch('/api/auth/admin/status')
+        const statusData = await statusRes.json()
+        if (statusData?.requiresVerification) {
+          // Start admin verification flow
+          setIsAdminVerification(true)
+          return
+        }
+      } catch (err) {
+        console.error('Error checking admin status after login:', err)
       }
 
       window.location.href = redirectTo
@@ -130,6 +159,86 @@ export function LoginForm() {
           </p>
         </CardFooter>
       </form>
+
+      {/* Admin verification UI - shown after successful password login if admin verification required */}
+      {isAdminVerification && (
+        <div className="mt-6 p-4 border rounded-lg bg-muted">
+          <h3 className="text-lg font-semibold mb-2">Admin-verifisering</h3>
+          {!isCodeSent ? (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault()
+                setIsCodeSent(false)
+                setIsLoading(true)
+                try {
+                  const res = await fetch('/api/auth/admin/request-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminUuid: adminUuidInput })
+                  })
+                  const data = await res.json()
+                  if (!res.ok) {
+                    setError(data.error || 'Kunne ikke sende kode')
+                  } else {
+                    setIsCodeSent(true)
+                    setError(null)
+                  }
+                } catch (err) {
+                  console.error('Request-code error:', err)
+                  setError('Noe gikk galt ved sending av kode')
+                } finally {
+                  setIsLoading(false)
+                }
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="adminUuid">Admin UUID</Label>
+                <Input id="adminUuid" value={adminUuidInput} onChange={(e) => setAdminUuidInput(e.target.value)} required className="h-12" />
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button type="submit" disabled={isLoading}>Send kode</Button>
+                <Button variant="ghost" onClick={() => { setIsAdminVerification(false); setError(null); }}>Avbryt</Button>
+              </div>
+            </form>
+          ) : (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault()
+                setIsLoading(true)
+                try {
+                  const res = await fetch('/api/auth/admin/verify-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: adminCodeInput })
+                  })
+                  const data = await res.json()
+                  if (!res.ok) {
+                    setError(data.error || 'Ugyldig kode')
+                  } else {
+                    // Verification successful - redirect to target
+                    try { localStorage.removeItem('pendingAdminUuid') } catch (e) {}
+                    window.location.href = redirectTo
+                  }
+                } catch (err) {
+                  console.error('Verify-code error:', err)
+                  setError('Noe gikk galt ved verifisering')
+                } finally {
+                  setIsLoading(false)
+                }
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="adminCode">Skriv inn koden du fikk på e-post</Label>
+                <Input id="adminCode" value={adminCodeInput} onChange={(e) => setAdminCodeInput(e.target.value)} required className="h-12" />
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button type="submit" disabled={isLoading}>Verifiser</Button>
+                <Button variant="ghost" onClick={() => { setIsAdminVerification(false); setIsCodeSent(false); setError(null); }}>Avbryt</Button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
     </Card>
   )
 }
