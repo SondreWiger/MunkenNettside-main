@@ -78,7 +78,7 @@ export function SeatMapViewer({
       grouped[section][row].push(seat)
     })
 
-    // Sort seats within each row
+    // Sort seats within each row and add placeholders for gaps
     Object.values(grouped).forEach(rows => {
       Object.values(rows).forEach(rowSeats => {
         rowSeats.sort((a, b) => a.number - b.number)
@@ -257,27 +257,48 @@ export function SeatMapViewer({
                             
                             {/* Seats */}
                             <div className="flex gap-0.5 md:gap-1">
-                              {rowSeats.map(seat => {
-                                const { className, status } = getSeatStyle(seat)
-                                const isDisabled = status === 'sold' || status === 'blocked' || status === 'reserved'
+                              {(() => {
+                                // Find min and max seat numbers in this row
+                                const minSeat = Math.min(...rowSeats.map(s => s.number))
+                                const maxSeat = Math.max(...rowSeats.map(s => s.number))
+                                const seatMap = new Map(rowSeats.map(s => [s.number, s]))
                                 
-                                return (
-                                  <button
-                                    key={getSeatKey(seat)}
-                                    onClick={() => toggleSeat(seat)}
-                                    disabled={isDisabled}
-                                    onMouseEnter={() => setHoveredSeat(seat)}
-                                    onMouseLeave={() => setHoveredSeat(null)}
-                                    className={cn(
-                                      "w-6 h-6 md:w-7 md:h-7 rounded text-[10px] md:text-xs font-medium transition-all duration-150 flex items-center justify-center",
-                                      className
-                                    )}
-                                    title={`Rad ${seat.row}, Sete ${seat.number} - ${formatPrice(getActualPrice(seat))}`}
-                                  >
-                                    {seat.number}
-                                  </button>
-                                )
-                              })}
+                                // Create array with placeholders for gaps
+                                const seatsToRender = []
+                                for (let num = minSeat; num <= maxSeat; num++) {
+                                  const seat = seatMap.get(num)
+                                  if (seat) {
+                                    const { className, status } = getSeatStyle(seat)
+                                    const isDisabled = status === 'sold' || status === 'blocked' || status === 'reserved'
+                                    
+                                    seatsToRender.push(
+                                      <button
+                                        key={getSeatKey(seat)}
+                                        onClick={() => toggleSeat(seat)}
+                                        disabled={isDisabled}
+                                        onMouseEnter={() => setHoveredSeat(seat)}
+                                        onMouseLeave={() => setHoveredSeat(null)}
+                                        className={cn(
+                                          "w-6 h-6 md:w-7 md:h-7 rounded text-[10px] md:text-xs font-medium transition-all duration-150 flex items-center justify-center",
+                                          className
+                                        )}
+                                        title={`Rad ${seat.row}, Sete ${seat.number} - ${formatPrice(getActualPrice(seat))}`}
+                                      >
+                                        {seat.number}
+                                      </button>
+                                    )
+                                  } else {
+                                    // Empty placeholder for gap
+                                    seatsToRender.push(
+                                      <div 
+                                        key={`gap-${num}`}
+                                        className="w-6 h-6 md:w-7 md:h-7"
+                                      />
+                                    )
+                                  }
+                                }
+                                return seatsToRender
+                              })()}
                             </div>
 
                             {/* Row label right */}

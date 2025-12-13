@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Check, X } from "lucide-react"
+import { ArrowLeft, Check, X, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 interface Enrollment {
@@ -18,6 +19,8 @@ interface Enrollment {
   enrolled_at: string
   reviewed_at: string | null
   role?: string
+  amount_paid_nok?: number
+  payment_completed_at?: string
   users: {
     full_name: string
     email: string
@@ -63,6 +66,8 @@ export default function EnrollmentsPage() {
         role,
         enrolled_at,
         reviewed_at,
+        amount_paid_nok,
+        payment_completed_at,
         users!user_id(full_name, email)
       `)
       .eq("ensemble_id", ensembleId)
@@ -164,18 +169,98 @@ export default function EnrollmentsPage() {
           </div>
         </div>
 
-        <div className="space-y-8">
-          {/* Pending Section */}
-          {enrollments.filter((e) => e.status === "pending").length > 0 && (
-            <div>
-              <h2 className="text-xl font-bold mb-4 text-gray-900">Venter på godkjenning</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {enrollments
-                  .filter((e) => e.status === "pending")
-                  .map((enrollment) => (
-                    <EnrollmentCard
-                      key={enrollment.id}
-                      enrollment={enrollment}
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="all">Alle ({enrollments.length})</TabsTrigger>
+            <TabsTrigger value="yellow">
+              {ensembleData?.yellow_team_name || "Gult lag"} ({enrollments.filter(e => e.status === 'yellow' || e.status === 'accepted').length})
+            </TabsTrigger>
+            <TabsTrigger value="blue">
+              {ensembleData?.blue_team_name || "Blått lag"} ({enrollments.filter(e => e.status === 'blue').length})
+            </TabsTrigger>
+            <TabsTrigger value="pending">Ventende ({enrollments.filter(e => e.status === 'pending').length})</TabsTrigger>
+          </TabsList>
+
+          {/* All Tab */}
+          <TabsContent value="all" className="space-y-8">
+            {/* Pending Section */}
+            {enrollments.filter((e) => e.status === "pending").length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold mb-4 text-gray-900">Venter på godkjenning</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {enrollments
+                    .filter((e) => e.status === "pending")
+                    .map((enrollment) => (
+                      <EnrollmentCard
+                        key={enrollment.id}
+                        enrollment={enrollment}
+                        ensembleData={ensembleData}
+                        roles={roles}
+                        onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
+                        onUpdateStatus={updateStatus}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Yellow/Accepted Team Section */}
+            {enrollments.filter((e) => e.status === "yellow" || e.status === "accepted").length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold mb-4 text-yellow-900">
+                  {ensembleData?.yellow_team_name || "Gult lag"}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {enrollments
+                    .filter((e) => e.status === "yellow" || e.status === "accepted")
+                    .map((enrollment) => (
+                      <EnrollmentCard
+                        key={enrollment.id}
+                        enrollment={enrollment}
+                        ensembleData={ensembleData}
+                        roles={roles}
+                        onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
+                        onUpdateStatus={updateStatus}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Blue Team Section */}
+            {enrollments.filter((e) => e.status === "blue").length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold mb-4 text-blue-900">
+                  {ensembleData?.blue_team_name || "Blått lag"}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {enrollments
+                    .filter((e) => e.status === "blue")
+                    .map((enrollment) => (
+                      <EnrollmentCard
+                        key={enrollment.id}
+                        enrollment={enrollment}
+                        ensembleData={ensembleData}
+                        roles={roles}
+                        onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
+                        onUpdateStatus={updateStatus}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Rejected Section */}
+            {enrollments.filter((e) => e.status === "rejected").length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold mb-4 text-red-900">Avslått</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {enrollments
+                    .filter((e) => e.status === "rejected")
+                    .map((enrollment) => (
+                      <EnrollmentCard
+                        key={enrollment.id}
+                        enrollment={enrollment}
                       ensembleData={ensembleData}
                       roles={roles}
                       onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
@@ -186,80 +271,83 @@ export default function EnrollmentsPage() {
             </div>
           )}
 
-          {/* Yellow Team Section */}
-          {enrollments.filter((e) => e.status === "yellow").length > 0 && (
-            <div>
-              <h2 className="text-xl font-bold mb-4 text-yellow-900">
-                {ensembleData?.yellow_team_name || "Gult lag"}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {enrollments
-                  .filter((e) => e.status === "yellow")
-                  .map((enrollment) => (
-                    <EnrollmentCard
-                      key={enrollment.id}
-                      enrollment={enrollment}
-                      ensembleData={ensembleData}
-                      roles={roles}
-                      onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
-                      onUpdateStatus={updateStatus}
-                    />
-                  ))}
-              </div>
+          {enrollments.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">Ingen påmeldinger</p>
             </div>
           )}
+          </TabsContent>
 
-          {/* Blue Team Section */}
-          {enrollments.filter((e) => e.status === "blue").length > 0 && (
-            <div>
-              <h2 className="text-xl font-bold mb-4 text-blue-900">
-                {ensembleData?.blue_team_name || "Blått lag"}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {enrollments
-                  .filter((e) => e.status === "blue")
-                  .map((enrollment) => (
-                    <EnrollmentCard
-                      key={enrollment.id}
-                      enrollment={enrollment}
-                      ensembleData={ensembleData}
-                      roles={roles}
-                      onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
-                      onUpdateStatus={updateStatus}
-                    />
-                  ))}
-              </div>
+          {/* Yellow Team Tab */}
+          <TabsContent value="yellow">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+              {enrollments
+                .filter((e) => e.status === "yellow" || e.status === "accepted")
+                .map((enrollment) => (
+                  <EnrollmentCard
+                    key={enrollment.id}
+                    enrollment={enrollment}
+                    ensembleData={ensembleData}
+                    roles={roles}
+                    onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
+                    onUpdateStatus={updateStatus}
+                  />
+                ))}
+              {enrollments.filter((e) => e.status === "yellow" || e.status === "accepted").length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-gray-500">Ingen medlemmer i {ensembleData?.yellow_team_name || "gult lag"} ennå</p>
+                </div>
+              )}
             </div>
-          )}
+          </TabsContent>
 
-          {/* Rejected Section */}
-          {enrollments.filter((e) => e.status === "rejected").length > 0 && (
-            <div>
-              <h2 className="text-xl font-bold mb-4 text-red-900">Avslått</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {enrollments
-                  .filter((e) => e.status === "rejected")
-                  .map((enrollment) => (
-                    <EnrollmentCard
-                      key={enrollment.id}
-                      enrollment={enrollment}
-                      ensembleData={ensembleData}
-                      roles={roles}
-                      onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
-                      onUpdateStatus={updateStatus}
-                    />
-                  ))}
-              </div>
+          {/* Blue Team Tab */}
+          <TabsContent value="blue">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+              {enrollments
+                .filter((e) => e.status === "blue")
+                .map((enrollment) => (
+                  <EnrollmentCard
+                    key={enrollment.id}
+                    enrollment={enrollment}
+                    ensembleData={ensembleData}
+                    roles={roles}
+                    onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
+                    onUpdateStatus={updateStatus}
+                  />
+                ))}
+              {enrollments.filter((e) => e.status === "blue").length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-gray-500">Ingen medlemmer i {ensembleData?.blue_team_name || "blått lag"} ennå</p>
+                </div>
+              )}
             </div>
-          )}
+          </TabsContent>
+
+          {/* Pending Tab */}
+          <TabsContent value="pending">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+              {enrollments
+                .filter((e) => e.status === "pending")
+                .map((enrollment) => (
+                  <EnrollmentCard
+                    key={enrollment.id}
+                    enrollment={enrollment}
+                    ensembleData={ensembleData}
+                    roles={roles}
+                    onRoleChange={(id, role) => setRoles((prev) => ({ ...prev, [id]: role }))}
+                    onUpdateStatus={updateStatus}
+                  />
+                ))}
+              {enrollments.filter((e) => e.status === "pending").length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-gray-500">Ingen ventende søknader</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
         </div>
-
-        {enrollments.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">Ingen påmeldinger ennå</p>
-          </div>
-        )}
-      </div>
     </main>
   )
 }
@@ -274,20 +362,33 @@ interface EnrollmentCardProps {
 
 function EnrollmentCard({ enrollment, ensembleData, roles, onRoleChange, onUpdateStatus }: EnrollmentCardProps) {
   const currentRole = roles[enrollment.id] ?? enrollment.role ?? ""
+  const isPaid = enrollment.amount_paid_nok && enrollment.amount_paid_nok > 0
 
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-4">
         <div className="mb-4 flex items-start justify-between">
-          <div>
-            <p className="font-semibold text-lg text-gray-900">{enrollment.users.full_name}</p>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-lg text-gray-900">{enrollment.users.full_name}</p>
+              {isPaid && (
+                <div title="Betalt medlemskap">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                </div>
+              )}
+            </div>
             <p className="text-sm text-gray-500">{enrollment.users.email}</p>
+            {isPaid && enrollment.payment_completed_at && (
+              <p className="text-xs text-green-600 mt-1">
+                Betalt: {new Date(enrollment.payment_completed_at).toLocaleDateString('nb-NO')}
+              </p>
+            )}
           </div>
           <Badge
             className={`${
               enrollment.status === "pending"
                 ? "bg-gray-100 text-gray-900"
-                : enrollment.status === "yellow"
+                : enrollment.status === "yellow" || enrollment.status === "accepted"
                 ? "bg-yellow-100 text-yellow-900"
                 : enrollment.status === "blue"
                 ? "bg-blue-100 text-blue-900"
@@ -296,7 +397,7 @@ function EnrollmentCard({ enrollment, ensembleData, roles, onRoleChange, onUpdat
           >
             {enrollment.status === "pending"
               ? "Venter"
-              : enrollment.status === "yellow"
+              : enrollment.status === "yellow" || enrollment.status === "accepted"
               ? "Gult"
               : enrollment.status === "blue"
               ? "Blått"

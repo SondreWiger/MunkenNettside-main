@@ -20,7 +20,8 @@ import {
   UserPlus,
   Theater,
   Link,
-  Unlink
+  Unlink,
+  Mail
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -61,6 +62,7 @@ export function UserManagement() {
   const [editingActor, setEditingActor] = useState<Actor | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [showActorDialog, setShowActorDialog] = useState(false)
+  const [showBulkActorDialog, setShowBulkActorDialog] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const [userForm, setUserForm] = useState({
@@ -78,18 +80,24 @@ export function UserManagement() {
     user_id: ''
   })
 
+  const [bulkActorText, setBulkActorText] = useState('')
+  const [bulkActorResults, setBulkActorResults] = useState<{success: string[], errors: string[]}>({ success: [], errors: [] })
+
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [showUserSearch, setShowUserSearch] = useState(false)
 
   // Filter users for search
   const filteredUsers = users.filter(user => {
-    if (!userSearchQuery.trim()) return true
-    const query = userSearchQuery.toLowerCase()
-    return (
+    const query = userSearchQuery.toLowerCase().trim()
+    const matchesSearch = !query || 
       user.full_name.toLowerCase().includes(query) ||
       user.email.toLowerCase().includes(query)
-    )
-  }).filter(u => !u.actor_id || u.actor_id === editingActor?.id)
+    
+    // Only show users that don't have an actor_id, OR have this actor's id
+    const isAvailable = !user.actor_id || user.actor_id === editingActor?.id
+    
+    return matchesSearch && isAvailable
+  })
 
   useEffect(() => {
     loadData()
@@ -228,6 +236,67 @@ export function UserManagement() {
     }
   }
 
+  const handleBulkActorCreation = async () => {
+    if (!bulkActorText.trim()) {
+      toast.error("Skriv inn navn (ett per linje)")
+      return
+    }
+
+    const names = bulkActorText.split('\n')
+      .map(name => name.trim())
+      .filter(name => name.length > 0)
+
+    if (names.length === 0) {
+      toast.error("Ingen gyldige navn funnet")
+      return
+    }
+
+    setSubmitting(true)
+    const results = { success: [] as string[], errors: [] as string[] }
+
+    for (const name of names) {
+      // Check for duplicate
+      if (actors.some(actor => actor.name.toLowerCase() === name.toLowerCase())) {
+        results.errors.push(`${name} - eksisterer allerede`)
+        continue
+      }
+
+      try {
+        const response = await fetch('/api/actors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            user_id: null
+          })
+        })
+
+        if (response.ok) {
+          results.success.push(name)
+        } else {
+          const error = await response.json()
+          results.errors.push(`${name} - ${error.error}`)
+        }
+      } catch (error) {
+        results.errors.push(`${name} - nettverksfeil`)
+      }
+    }
+
+    setBulkActorResults(results)
+    await loadData()
+    setSubmitting(false)
+    
+    if (results.errors.length === 0) {
+      toast.success(`${results.success.length} skuespillere opprettet`)
+      setShowBulkActorDialog(false)
+      setBulkActorText('')
+    } else if (results.success.length > 0) {
+      toast.success(`${results.success.length} opprettet, ${results.errors.length} feilet`)
+    } else {
+      toast.error("Alle opprettelser feilet")
+    }
+  }
+
   const handleDeleteActor = async (actorId: string) => {
     if (!confirm("Er du sikker på at du vil slette denne skuespilleren?")) return
 
@@ -251,8 +320,10 @@ export function UserManagement() {
 
   const openUserDialog = (user: User) => {
     setEditingUser(user)
+    // Ensure role is one of the valid values, default to customer if not
+    const validRole = ['customer', 'staff', 'admin'].includes(user.role) ? user.role : 'customer'
     setUserForm({
-      role: user.role,
+      role: validRole,
       actorId: user.actor_id || 'none',
       profileSlug: user.profile_slug || ''
     })
@@ -300,6 +371,27 @@ export function UserManagement() {
       case 'admin': return 'bg-red-100 text-red-800'
       case 'staff': return 'bg-blue-100 text-blue-800'
       default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const [sendingVerificationFor, setSendingVerificationFor] = useState<string | null>(null)
+
+  const handleSendVerification = async (userId: string) => {
+    if (!confirm('Send verifikasjonskode til denne administratoren?')) return
+    setSendingVerificationFor(userId)
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/send-verification`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('Verifikasjonskode sendt')
+      } else {
+        toast.error(`Kunne ikke sende kode: ${data.error || 'ukjent feil'}`)
+      }
+    } catch (err) {
+      console.error('Error sending admin verification:', err)
+      toast.error('Kunne ikke sende kode')
+    } finally {
+      setSendingVerificationFor(null)
     }
   }
 
@@ -407,6 +499,17 @@ export function UserManagement() {
                       <RoleIcon className="h-3 w-3" />
                       {user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Ansatt' : 'Kunde'}
                     </Badge>
+                    {user.role === 'admin' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendVerification(user.id)}
+                        disabled={sendingVerificationFor === user.id}
+                        title="Send verifikasjonskode til denne administratoren"
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -434,10 +537,14 @@ export function UserManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
+          <div className="mb-4 flex gap-2">
             <Button onClick={openNewActorDialog} className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
               Ny skuespiller
+            </Button>
+            <Button onClick={() => setShowBulkActorDialog(true)} variant="outline" className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Opprett flere
             </Button>
           </div>
           
@@ -634,34 +741,55 @@ export function UserManagement() {
               <Label htmlFor="user-link">Koble til bruker</Label>
               <div className="space-y-2">
                 <Input
-                  placeholder="Søk etter bruker..."
+                  placeholder="Søk etter bruker (navn eller e-post)..."
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
                 />
-                <div className="max-h-40 overflow-y-auto border rounded-md">
+                <div className="max-h-60 overflow-y-auto border rounded-md bg-white">
                   <div
                     className={cn(
-                      "p-2 cursor-pointer hover:bg-gray-50",
-                      actorForm.user_id === "none" && "bg-blue-50"
+                      "p-3 cursor-pointer hover:bg-gray-100 transition-colors border-b",
+                      actorForm.user_id === "none" && "bg-blue-100 font-semibold"
                     )}
                     onClick={() => setActorForm({ ...actorForm, user_id: "none" })}
                   >
-                    Ingen kobling
-                  </div>
-                  {filteredUsers.map(user => (
-                    <div
-                      key={user.id}
-                      className={cn(
-                        "p-2 cursor-pointer hover:bg-gray-50",
-                        actorForm.user_id === user.id && "bg-blue-50"
-                      )}
-                      onClick={() => setActorForm({ ...actorForm, user_id: user.id })}
-                    >
-                      <div className="font-medium">{user.full_name}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
+                    <div className="flex items-center gap-2">
+                      <Unlink className="h-4 w-4" />
+                      Ingen kobling
                     </div>
-                  ))}
+                  </div>
+                  {filteredUsers.length === 0 && userSearchQuery.trim() ? (
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      Ingen brukere funnet
+                    </div>
+                  ) : (
+                    filteredUsers.map(user => (
+                      <div
+                        key={user.id}
+                        className={cn(
+                          "p-3 cursor-pointer hover:bg-gray-100 transition-colors border-b last:border-b-0",
+                          actorForm.user_id === user.id && "bg-blue-100"
+                        )}
+                        onClick={() => setActorForm({ ...actorForm, user_id: user.id })}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{user.full_name}</div>
+                            <div className="text-sm text-gray-600">{user.email}</div>
+                          </div>
+                          {actorForm.user_id === user.id && (
+                            <Link className="h-4 w-4 text-blue-600" />
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
+                {userSearchQuery.trim() === '' && (
+                  <p className="text-sm text-muted-foreground">
+                    Viser {filteredUsers.length} tilgjengelige bruker{filteredUsers.length !== 1 ? 'e' : ''}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -679,6 +807,76 @@ export function UserManagement() {
               disabled={submitting}
             >
               {submitting ? 'Lagrer...' : (editingActor ? 'Lagre endringer' : 'Opprett skuespiller')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Actor Creation Dialog */}
+      <Dialog open={showBulkActorDialog} onOpenChange={setShowBulkActorDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Opprett flere skuespillere</DialogTitle>
+            <DialogDescription>
+              Skriv ett navn per linje. Duplikater hoppes over.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <textarea
+                className="w-full min-h-[300px] p-3 border rounded-md font-mono text-sm"
+                placeholder="Ola Nordmann&#10;Kari Hansen&#10;Per Olsen"
+                value={bulkActorText}
+                onChange={(e) => setBulkActorText(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+
+            {bulkActorResults && (bulkActorResults.success.length > 0 || bulkActorResults.errors.length > 0) && (
+              <div className="space-y-2 p-4 bg-gray-50 rounded-md max-h-[200px] overflow-y-auto">
+                {bulkActorResults.success.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-green-700 mb-2">Opprettet ({bulkActorResults.success.length}):</h4>
+                    <ul className="text-sm text-green-600 space-y-1">
+                      {bulkActorResults.success.map((name, idx) => (
+                        <li key={idx}>✓ {name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {bulkActorResults.errors.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="font-semibold text-red-700 mb-2">Feilet ({bulkActorResults.errors.length}):</h4>
+                    <ul className="text-sm text-red-600 space-y-1">
+                      {bulkActorResults.errors.map((error, idx) => (
+                        <li key={idx}>✗ {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowBulkActorDialog(false)
+                setBulkActorText('')
+                setBulkActorResults({ success: [], errors: [] })
+              }}
+              disabled={submitting}
+            >
+              Lukk
+            </Button>
+            <Button 
+              onClick={handleBulkActorCreation}
+              disabled={submitting || !bulkActorText.trim()}
+            >
+              {submitting ? 'Oppretter...' : 'Opprett alle'}
             </Button>
           </DialogFooter>
         </DialogContent>

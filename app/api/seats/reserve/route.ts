@@ -1,15 +1,45 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/supabase/server"
-import { generateSeats, type SeatMapConfig } from "@/lib/utils/seatMapGenerator"
+import { generateSeats, parseSeatKey, type SeatMapConfig } from "@/lib/utils/seatMapGenerator"
+import { generateSeatsFromConfig } from '@/lib/utils/seat-generation'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    let { seatIds, showId } = body as { seatIds?: string[]; showId?: string }
+    let body: any = {}
+    let seatIds: string[] | undefined
+    let showId: string | undefined
 
-    console.log("[v0] Reserve seats request", { showId, seatIds })
+    try {
+      body = await request.json()
+    } catch (err) {
+      // If JSON parsing fails, try to read raw text for debugging
+      const raw = await request.text()
+      console.warn("[v0] Could not parse JSON body, raw body:", raw)
+      try {
+        body = JSON.parse(raw || "{}")
+      } catch (err2) {
+        body = {}
+      }
+    }
+
+    const seatIdsAny: any = body?.seatIds
+    showId = body?.showId
+
+    // Normalize seatIds into an array of strings
+    if (typeof seatIdsAny === 'string') {
+      seatIds = seatIdsAny.split(',').map((s: string) => s.trim()).filter(Boolean)
+    } else if (Array.isArray(seatIdsAny)) {
+      seatIds = seatIdsAny as string[]
+    } else {
+      seatIds = undefined
+    }
+
+    console.log("[v0] Reserve seats request", { showId, seatIds, contentType: request.headers.get("content-type") })
+
+    // seatIds is normalized above into a string[] or undefined
 
     if (!seatIds || !Array.isArray(seatIds) || seatIds.length === 0 || !showId) {
+      console.warn("[v0] Invalid reserve request payload", { body })
       return NextResponse.json({ error: "Manglende seatIds eller showId" }, { status: 400 })
     }
 
@@ -32,27 +62,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Show not found" }, { status: 404 })
     }
 
-    // Parse seat IDs to extract seat positions
+    // Accept optional richer seat objects in the payload to allow
+    // the client to provide stable position data when UUIDs are stale.
+    // body.seats: [{ id, section, row, number }]
+    const seatsFromBody: any[] = Array.isArray(body?.seats) ? body.seats : []
+
+    // Parse seat IDs to extract seat positions. Prefer explicit data from body.seats,
+    // then try to parse a seat key like "Section-A-1". Otherwise treat as UUID.
     const seatPositions = seatIds.map(seatId => {
-      // Handle both UUID format and position format
-      if (seatId.includes('-') && seatId.split('-').length > 5) {
-        // Format: {showId}-{section}-{row}-{number}
-        const parts = seatId.split('-')
+      const found = seatsFromBody.find(s => String(s.id) === String(seatId))
+      if (found) {
         return {
           originalId: seatId,
-          section: parts[5] || 'Sal',
-          row: parts[6] || 'R',
-          number: parseInt(parts[7]) || 1
+          section: found.section || null,
+          row: found.row ? String(found.row) : null,
+          number: found.number != null ? Number(found.number) : null,
         }
-      } else {
-        // Assume it's already a UUID - try to find it directly
-        return { originalId: seatId, section: null, row: null, number: null }
       }
+
+      // Try seat key format Section-A-1 etc.
+      const parsed = parseSeatKey(String(seatId))
+      if (parsed) {
+        return { originalId: seatId, section: parsed.section, row: String.fromCharCode(65 + parsed.row), number: parsed.col + 1 }
+      }
+
+      // Fallback: treat as UUID
+      return { originalId: seatId, section: null, row: null, number: null }
     })
 
     // First, try to find existing seats by UUID or by position
-    const existingSeats = []
-    const seatsToCreate = []
+  const existingSeats: any[] = []
+  const seatsToCreate: any[] = []
+  const missingOriginalIds: string[] = []
 
     for (const position of seatPositions) {
       let seat = null
@@ -94,24 +135,109 @@ export async function POST(request: NextRequest) {
           status: 'available'
         })
       } else {
-        return NextResponse.json({ error: `Seat with ID ${position.originalId} not found` }, { status: 400 })
+        // UUID-style ID not found in DB — try fallback strategies before giving up
+        // 1) If the client provided position info for this originalId, create the seat
+        const bodySeat = seatsFromBody.find(s => String(s.id) === String(position.originalId))
+        if (bodySeat && bodySeat.section && bodySeat.row && (bodySeat.number != null)) {
+          seatsToCreate.push({
+            show_id: showId,
+            section: bodySeat.section || 'Sal',
+            row: String(bodySeat.row),
+            number: Number(bodySeat.number),
+            price_nok: show.base_price_nok || 0,
+            status: 'available'
+          })
+        } else {
+          // Defer: couldn't find positional info locally - record for later retry (using generator)
+          missingOriginalIds.push(position.originalId)
+        }
       }
     }
 
     // Create missing seats
     if (seatsToCreate.length > 0) {
-      const { data: createdSeats, error: createError } = await supabase
-        .from("seats")
-        .insert(seatsToCreate)
-        .select("id, section, row, number, status, reserved_until")
+      // Try insert with duplicate handling (unique constraint may race)
+      try {
+        const { data: createdSeats, error: createError } = await supabase
+          .from("seats")
+          .insert(seatsToCreate)
+          .select("id, section, row, number, status, reserved_until")
 
-      if (createError) {
-        console.error("[v0] Failed to create seats:", createError)
-        return NextResponse.json({ error: "Could not create seats" }, { status: 500 })
+        if (createError) {
+          // If duplicate error, try a safe retry: delete existing seats for this show and re-insert
+          if ((createError as any).code === '23505') {
+            console.warn('[v0] Duplicate key error while creating seats, retrying by regenerating seats for show')
+            // Try generating seats from venue config which will delete/recreate atomically
+            try {
+              await generateSeatsFromConfig(showId, supabase)
+            } catch (genErr) {
+              console.error('[v0] Seat generation failed during retry:', genErr)
+            }
+          } else {
+            console.error("[v0] Failed to create seats:", createError)
+            return NextResponse.json({ error: "Could not create seats" }, { status: 500 })
+          }
+        }
+
+        // Re-query seats that match the created positions to get IDs
+        const createdOrFound: any[] = []
+        for (const s of seatsToCreate) {
+          const { data: seatRec } = await supabase
+            .from('seats')
+            .select('id, section, row, number, status, reserved_until')
+            .eq('show_id', showId)
+            .eq('section', s.section)
+            .eq('row', s.row)
+            .eq('number', s.number)
+            .single()
+          if (seatRec) createdOrFound.push(seatRec)
+        }
+
+        console.log('[v0] Created or found', createdOrFound.length, 'new seats')
+        existingSeats.push(...createdOrFound)
+      } catch (err) {
+        console.error('[v0] Unexpected error creating seats:', err)
+        return NextResponse.json({ error: 'Could not create seats' }, { status: 500 })
+      }
+    }
+
+    // If there are still missing UUIDs (we couldn't map by position), try to generate seats
+    // from the venue seat_map_config and re-run a lookup for those IDs by positions
+    if (missingOriginalIds.length > 0) {
+      console.warn('[v0] Some requested seat UUIDs were not found immediately, will attempt generation fallback:', missingOriginalIds)
+
+      if (show?.venue?.seat_map_config) {
+        try {
+          await generateSeatsFromConfig(showId, supabase)
+        } catch (genErr) {
+          console.error('[v0] Seat generation fallback failed:', genErr)
+        }
+
+        // Re-run lookup for missing items using any positional info we may have
+        for (const originalId of [...missingOriginalIds]) {
+          // Try to find in seatsFromBody first
+          const bodySeat = seatsFromBody.find(s => String(s.id) === String(originalId))
+          if (bodySeat && bodySeat.section && bodySeat.row && (bodySeat.number != null)) {
+            const { data: seatRec } = await supabase
+              .from('seats')
+              .select('id, section, row, number, status, reserved_until')
+              .eq('show_id', showId)
+              .eq('section', bodySeat.section)
+              .eq('row', String(bodySeat.row))
+              .eq('number', Number(bodySeat.number))
+              .single()
+            if (seatRec) {
+              existingSeats.push(seatRec)
+              missingOriginalIds.splice(missingOriginalIds.indexOf(originalId), 1)
+            }
+          }
+        }
       }
 
-      console.log("[v0] Created", createdSeats?.length || 0, "new seats")
-      existingSeats.push(...(createdSeats || []))
+      if (missingOriginalIds.length > 0) {
+        console.warn("[v0] Following requested seat UUIDs could not be resolved even after generation:", missingOriginalIds)
+        return NextResponse.json({ error: `Følgende seter ble ikke funnet: ${missingOriginalIds.join(', ')}`, missingOriginalIds }, { status: 400 })
+      }
     }
 
     const currentSeats = existingSeats
@@ -172,13 +298,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('[v0] Attempting to reserve seats:', { actualSeatIds, showId, reservedUntil })
     const { data: reservedSeats, error: updateError } = await supabase
       .from("seats")
       .update({ status: "reserved", reserved_until: reservedUntil })
       .in("id", actualSeatIds)
       .eq("show_id", showId)
       .eq("status", "available")
-      .select("id")
+      .select("id, status, reserved_until")
 
     if (updateError) {
       console.error("[v0] Update seats error:", updateError)
@@ -189,6 +316,9 @@ export async function POST(request: NextRequest) {
       })
       return NextResponse.json({ error: "Kunne ikke reservere setene", details: updateError.message }, { status: 500 })
     }
+
+    const updatedCount = Array.isArray(reservedSeats) ? reservedSeats.length : 0
+    console.log('[v0] Reserve update result:', { updatedCount, reservedSeats })
 
     if (!reservedSeats || reservedSeats.length !== seatIds.length) {
       const reservedIds = reservedSeats?.map((seat) => seat.id) || []
@@ -207,6 +337,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `${failedCount} av setene ble nettopp tatt av noen andre` }, { status: 409 })
     }
 
+    console.log(`[v0] Successfully reserved ${reservedSeats.length} seats`)
     return NextResponse.json({ success: true, reservedUntil, seatIds: reservedSeats.map((seat) => seat.id) })
   } catch (error) {
     console.error("[v0] Reserve seats error:", error)

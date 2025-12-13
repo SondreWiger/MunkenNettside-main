@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { SeatMapViewer } from "@/components/booking/seat-map-viewer"
+import { VisualSeatMapViewer } from "@/components/booking/visual-seat-map-viewer"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { generateSeatsFromConfig } from "@/lib/utils/seat-generation"
 
@@ -116,17 +117,42 @@ export default async function BookingPage({ params }: PageProps) {
     redirect("/forestillinger?message=soldout")
   }
 
+  // Check if venue has visual grid layout or freeform seat positions
+  const hasVisualGrid = (show.venue?.seat_map_config?.gridData && 
+                       show.venue.seat_map_config.gridData.grid && 
+                       show.venue.seat_map_config.gridData.grid.length > 0) ||
+                       (Array.isArray(show.venue?.seat_map_config?.seats) && show.venue.seat_map_config.seats.some((s: any) => typeof s.x === 'number' && typeof s.y === 'number'))
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
-        <SeatMapViewer 
-          show={show} 
-          seats={seats} 
-          isEarlyBird={isEarlyBird}
-          earlyBirdDiscount={earlyBirdDiscount}
-        />
+        {hasVisualGrid ? (
+          <VisualSeatMapViewer 
+            show={show} 
+            seats={seats} 
+            isEarlyBird={isEarlyBird}
+            earlyBirdDiscount={earlyBirdDiscount}
+            venueGrid={{
+              gridRows: show.venue.seat_map_config?.gridData?.rows || 0,
+              gridCols: show.venue.seat_map_config?.gridData?.cols || 0,
+              grid: show.venue.seat_map_config?.gridData?.grid || []
+            }}
+            seatMapConfig={show.venue.seat_map_config}
+          />
+        ) : (
+          <SeatMapViewer 
+            show={show} 
+            seats={seats} 
+            isEarlyBird={isEarlyBird}
+            earlyBirdDiscount={earlyBirdDiscount}
+          />
+        )}
+        <div className="text-center mt-8 text-sm text-muted-foreground">
+          Ved å bestille godtar du våre{' '}
+          <a href="/legal/vilkar" target="_blank" className="underline hover:text-blue-600">Vilkår for kjøp</a>.
+        </div>
       </main>
 
       <Footer />

@@ -31,6 +31,9 @@ export function Footer() {
               <Link href="/kontakt" className="text-muted-foreground hover:text-foreground transition-colors">
                 Kontakt
               </Link>
+              <Link href="/legal" className="text-muted-foreground hover:text-foreground transition-colors">
+                Juridiske dokumenter
+              </Link>
             </nav>
           </div>
 

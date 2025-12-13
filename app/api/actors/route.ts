@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, bio, photo_url, contact_email, contact_phone, user_id } = body
+    const { name, bio, photo_url, contact_email, contact_phone, user_id, force_new } = body
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -34,11 +34,49 @@ export async function POST(request: NextRequest) {
 
     const supabase = await getSupabaseServerClient()
 
+    let finalName = name
+
+    // If force_new is true and there's a conflict, append a number
+    if (force_new) {
+      const { data: existing } = await supabase
+        .from('actors')
+        .select('name')
+        .eq('name', name)
+        .maybeSingle()
+
+      if (existing) {
+        // Find a unique name by appending a number
+        let counter = 2
+        let testName = `${name} ${counter}`
+        
+        while (true) {
+          const { data: conflict } = await supabase
+            .from('actors')
+            .select('name')
+            .eq('name', testName)
+            .maybeSingle()
+          
+          if (!conflict) {
+            finalName = testName
+            break
+          }
+          
+          counter++
+          testName = `${name} ${counter}`
+          
+          // Safety limit
+          if (counter > 100) {
+            return NextResponse.json({ error: 'Could not generate unique name' }, { status: 400 })
+          }
+        }
+      }
+    }
+
     // Create new actor
     const { data: actor, error } = await supabase
       .from('actors')
       .insert({
-        name,
+        name: finalName,
         bio: bio || null,
         photo_url: photo_url || null,
         contact_email: contact_email || null,

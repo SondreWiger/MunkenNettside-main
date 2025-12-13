@@ -13,9 +13,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
+import { PayPalButton } from "@/components/payment/paypal-button"
+import { VippsButton } from "@/components/payment/vipps-button"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { formatPrice } from "@/lib/utils/booking"
 import type { Ensemble, Recording } from "@/lib/types"
+import { toast } from "sonner"
 
 export function RecordingCheckout() {
   const [ensemble, setEnsemble] = useState<Ensemble | null>(null)
@@ -30,6 +33,7 @@ export function RecordingCheckout() {
   const [discountCode, setDiscountCode] = useState("")
   const [discountError, setDiscountError] = useState<string | null>(null)
   const [appliedDiscount, setAppliedDiscount] = useState<{ type: string; value: number } | null>(null)
+  const [showPayPal, setShowPayPal] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = getSupabaseBrowserClient()
@@ -201,6 +205,13 @@ export function RecordingCheckout() {
       return
     }
 
+    // Show PayPal payment interface
+    setShowPayPal(true)
+  }
+
+  const handlePayPalSuccess = async (details: any) => {
+    if (!ensemble) return
+
     setIsProcessing(true)
     setError(null)
 
@@ -223,13 +234,14 @@ export function RecordingCheckout() {
         return
       }
 
-      // Create purchase via API (mock payment)
+      // Create purchase via API with PayPal
       const requestBody = {
         ensembleId: ensemble.id,
         recordingIds: getSelectedRecordings().map((r) => r.id),
         team: selectedTeam,
         amount: calculatePrice(),
         discountCode: appliedDiscount ? discountCode.toUpperCase() : null,
+        paypalOrderId: details.id,
       }
 
       console.log("[v0] Sending purchase request:", requestBody)
@@ -246,10 +258,20 @@ export function RecordingCheckout() {
         throw new Error(result.error || "Kunne ikke fullføre kjøpet")
       }
 
+      // Increment discount code usage if applied
+      if (appliedDiscount && discountCode) {
+        await supabase
+          .from("discount_codes")
+          .update({ 
+            current_uses: supabase.raw("current_uses + 1") 
+          })
+          .eq("code", discountCode.toUpperCase())
+      }
+
+      toast.success("Betaling fullført!")
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Noe gikk galt")
-    } finally {
       setIsProcessing(false)
     }
   }
@@ -486,22 +508,83 @@ export function RecordingCheckout() {
                 <span className="text-lg">Totalt</span>
                 <span className="text-2xl font-bold text-primary">{formatPrice(calculatePrice())}</span>
               </div>
-              <Button type="submit" disabled={isProcessing || !acceptTerms} size="lg" className="w-full h-14 text-lg">
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Behandler...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="mr-2 h-5 w-5" />
-                    Betal {formatPrice(calculatePrice())}
-                  </>
-                )}
-              </Button>
-              <p className="text-sm text-muted-foreground text-center mt-4">
-                Midlertidig: Betaling simuleres for testing. Vipps-integrasjon kommer snart.
-              </p>
+              
+              {showPayPal ? (
+                <div className="space-y-4">
+                  <PayPalButton
+                    amount={calculatePrice()}
+                    currency="NOK"
+                    description={`Opptak - ${ensemble.title}`}
+                    onSuccess={handlePayPalSuccess}
+                    onError={(error) => {
+                      setError("Betaling feilet. Vennligst prøv igjen.")
+                      setShowPayPal(false)
+                      setIsProcessing(false)
+                    }}
+                    onCancel={() => {
+                      setShowPayPal(false)
+                    }}
+                  />
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">eller</span>
+                    </div>
+                  </div>
+
+                  <VippsButton
+                    amount={calculatePrice()}
+                    currency="NOK"
+                    description={`Opptak - ${ensemble.title}`}
+                  />
+
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowPayPal(false)}
+                    className="w-full"
+                  >
+                    Avbryt
+                  </Button>
+
+                  {/* DEV SKIP BUTTON */}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full mt-2"
+                    onClick={async () => {
+                      setIsProcessing(true)
+                      setError(null)
+                      // Simulate payment success with dummy order id
+                      await handlePayPalSuccess({ id: "dev-skip" })
+                    }}
+                  >
+                    Skip (dev) – Simuler betaling
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button type="submit" disabled={isProcessing || !acceptTerms} size="lg" className="w-full h-14 text-lg">
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Behandler...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="mr-2 h-5 w-5" />
+                        Betal {formatPrice(calculatePrice())}
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-sm text-muted-foreground text-center mt-4">
+                    Betaling gjøres via PayPal.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </form>

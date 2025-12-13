@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { VenueImageManager } from "@/components/admin/venue-image-manager"
-import { SimpleSeatMapEditor, type SimpleSeatMap } from "@/components/admin/simple-seat-map-editor"
+import { VisualSeatMapEditor } from "@/components/admin/visual-seat-map-editor"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
@@ -33,16 +33,16 @@ export default function NewVenuePage() {
     public_transport: "",
   })
   const [images, setImages] = useState<VenueImage[]>([])
-  const [seatMapConfig, setSeatMapConfig] = useState<SimpleSeatMap | null>(null)
+  const [seatMapConfig, setSeatMapConfig] = useState<any>(null)
   const [tempVenueId] = useState(() => `temp-${Date.now()}`)
 
   const supabase = getSupabaseBrowserClient()
 
-  const calculateCapacity = (config: SimpleSeatMap | null) => {
+  const calculateCapacity = (config: any) => {
     if (!config || !config.seats) return 0
     
     // Count all active seats (not inactive)
-    return config.seats.filter(seat => seat.type !== 'inactive').length
+    return config.seats.filter((seat: any) => seat.type !== 'inactive').length
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,18 +190,21 @@ export default function NewVenuePage() {
         />
 
         {/* Seat map editor */}
-        <Card>
+        <Card className="w-full">
           <CardHeader>
-            <CardTitle>Setekart</CardTitle>
+            <CardTitle>Setekart - Visuell Editor</CardTitle>
             <CardDescription>
-              Tegn og konfigurer seteplasseringen for dette lokalet
+              Tegn og konfigurer seteplasseringen for dette lokalet. Klikk og dra for å tegne.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SimpleSeatMapEditor
-              initialMap={seatMapConfig || undefined}
-              onSave={setSeatMapConfig}
+            <VisualSeatMapEditor
               venueId={tempVenueId}
+              initialConfig={null}
+              onSave={(config: any) => {
+                setSeatMapConfig(config)
+                toast.success("Setekart konfigurert")
+              }}
             />
           </CardContent>
         </Card>

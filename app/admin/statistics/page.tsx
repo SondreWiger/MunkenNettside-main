@@ -159,6 +159,8 @@ async function fetchVenueHeatmaps() {
 export default async function AdminStatisticsPage() {
   const stats = await fetchStats()
 
+  const heatmaps = await fetchVenueHeatmaps()
+
   const { monthly, revenueTimeseries, kursEnrollCount, ensembleEnrollCount, seatFill } = stats as any
 
   // Simple SVG sparkline generator
@@ -275,7 +277,35 @@ export default async function AdminStatisticsPage() {
             <CardDescription>Aggregated seat heatmaps (densely sold seats) per venue</CardDescription>
           </CardHeader>
           <CardContent>
-            <VenueHeatmaps />
+            <div className="space-y-6">
+              {(heatmaps || []).map((v: any) => {
+                const positions = Object.entries(v.positions || {})
+                const totalOccurrences = positions.reduce((s: number, [, p]: any) => s + (p.total || 0), 0)
+                const top = positions
+                  .map(([k, p]: any) => ({ pos: k, sold: p.sold, total: p.total, rate: p.total ? p.sold / p.total : 0 }))
+                  .sort((a, b) => b.sold - a.sold)
+                  .slice(0, 20)
+                return (
+                  <div key={v.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{v.name}</div>
+                      <div className="text-sm text-muted-foreground">Seat occurrences: {totalOccurrences}</div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2">
+                      {top.map((t: any) => (
+                        <div key={t.pos} className="p-2 rounded-md flex flex-col items-center bg-gray-50">
+                          <div className="text-xs font-semibold">{t.pos.replace(/__/g, ' ')}</div>
+                          <div className="w-16 h-2 bg-gray-200 mt-1 rounded overflow-hidden">
+                            <div className="h-full bg-red-500" style={{ width: `${Math.round((t.rate || 0) * 100)}%` }} />
+                          </div>
+                          <div className="text-xs text-muted-foreground">{t.sold}/{t.total}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -284,38 +314,4 @@ export default async function AdminStatisticsPage() {
   )
 }
 
-async function VenueHeatmaps() {
-  const heatmaps = await fetchVenueHeatmaps()
 
-  return (
-    <div className="space-y-6">
-      {(heatmaps || []).map((v: any) => {
-        const positions = Object.entries(v.positions || {})
-        const totalOccurrences = positions.reduce((s: number, [, p]: any) => s + (p.total || 0), 0)
-        const top = positions
-          .map(([k, p]: any) => ({ pos: k, sold: p.sold, total: p.total, rate: p.total ? p.sold / p.total : 0 }))
-          .sort((a, b) => b.sold - a.sold)
-          .slice(0, 20)
-        return (
-          <div key={v.id} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="font-medium">{v.name}</div>
-              <div className="text-sm text-muted-foreground">Seat occurrences: {totalOccurrences}</div>
-            </div>
-            <div className="grid grid-cols-5 gap-2">
-              {top.map((t: any) => (
-                <div key={t.pos} className="p-2 rounded-md flex flex-col items-center bg-gray-50">
-                  <div className="text-xs font-semibold">{t.pos.replace(/__/g, ' ')}</div>
-                  <div className="w-16 h-2 bg-gray-200 mt-1 rounded overflow-hidden">
-                    <div className="h-full bg-red-500" style={{ width: `${Math.round((t.rate || 0) * 100)}%` }} />
-                  </div>
-                  <div className="text-xs text-muted-foreground">{t.sold}/{t.total}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}

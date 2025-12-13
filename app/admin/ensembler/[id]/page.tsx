@@ -145,6 +145,15 @@ export default function EditEnsemblePage() {
         
         if (responseData.code === 'TABLES_NOT_EXIST') {
           toast.error("Database tabeller er ikke initialisert. Database må settes opp først.")
+        } else if (responseData.code === 'DUPLICATE_ROLE_NAME') {
+          toast.error("En rolle med samme navn eksisterer allerede. Hver rolle må ha et unikt navn.")
+        } else if (responseData.details && Array.isArray(responseData.details)) {
+          // Show specific error from details if available
+          const errorMessages = responseData.details
+            .filter((d: any) => d.error)
+            .map((d: any) => d.error.message)
+            .join(', ')
+          toast.error(`Kunne ikke lagre roller: ${errorMessages}`)
         } else {
           toast.error("Kunne ikke lagre roller: " + (responseData.error || 'Ukjent feil'))
         }
@@ -428,6 +437,23 @@ export default function EditEnsemblePage() {
                     />
                     <p className="text-xs text-muted-foreground">
                       Pris for digitale opptak av forestillingen
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Deltakelsespris (NOK)</Label>
+                    <Input
+                      type="number"
+                      value={ensemble.participation_price_nok || ""}
+                      onChange={(e) =>
+                        setEnsemble({ 
+                          ...ensemble, 
+                          participation_price_nok: e.target.value === "" ? 0 : Number.parseFloat(e.target.value) 
+                        })
+                      }
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pris for å delta i ensemblet. Hvis 0, er deltakelsen gratis.
                     </p>
                   </div>
                 </div>

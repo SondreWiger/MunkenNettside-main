@@ -13,70 +13,26 @@ export async function GET(request: NextRequest) {
 
     const supabase = await getSupabaseServerClient()
 
-    if (ensembleId) {
-      // Search only actors who are enrolled in this ensemble
-      // First get user_ids of enrolled members
-      const { data: enrollments, error: enrollError } = await supabase
-        .from('ensemble_enrollments')
-        .select('user_id')
-        .eq('ensemble_id', ensembleId)
-        .in('status', ['yellow', 'blue'])
+    // Search all actors regardless of ensemble enrollment
+    const { data: actors, error } = await supabase
+      .from('actors')
+      .select('id, name, photo_url, bio, user_id')
+      .ilike('name', `%${query}%`)
+      .order('name')
+      .limit(10)
 
-      if (enrollError) {
-        console.error('Error fetching enrollments:', enrollError)
-        return NextResponse.json({ error: 'Failed to fetch enrollments' }, { status: 500 })
-      }
-
-      const enrolledUserIds = enrollments?.map(e => e.user_id) || []
-
-      if (enrolledUserIds.length === 0) {
-        // No enrolled users, return empty
+    if (error) {
+      console.error('Error searching actors:', error)
+      
+      if (error.code === '42P01') {
+        console.log('Actors table does not exist yet, returning empty array')
         return NextResponse.json({ actors: [] })
       }
-
-      // Search actors who are linked to these users
-      const { data: actors, error } = await supabase
-        .from('actors')
-        .select('id, name, photo_url, bio, user_id')
-        .ilike('name', `%${query}%`)
-        .in('user_id', enrolledUserIds)
-        .order('name')
-        .limit(10)
-
-      if (error) {
-        console.error('Error searching actors:', error)
-        
-        if (error.code === '42P01') {
-          console.log('Actors table does not exist yet, returning empty array')
-          return NextResponse.json({ actors: [] })
-        }
-        
-        return NextResponse.json({ error: 'Failed to search actors' }, { status: 500 })
-      }
-
-      return NextResponse.json({ actors })
-    } else {
-      // No ensemble filter - search all actors
-      const { data: actors, error } = await supabase
-        .from('actors')
-        .select('id, name, photo_url, bio')
-        .ilike('name', `%${query}%`)
-        .order('name')
-        .limit(10)
-
-      if (error) {
-        console.error('Error searching actors:', error)
-        
-        if (error.code === '42P01') {
-          console.log('Actors table does not exist yet, returning empty array')
-          return NextResponse.json({ actors: [] })
-        }
-        
-        return NextResponse.json({ error: 'Failed to search actors' }, { status: 500 })
-      }
-
-      return NextResponse.json({ actors })
+      
+      return NextResponse.json({ error: 'Failed to search actors' }, { status: 500 })
     }
+
+    return NextResponse.json({ actors })
 
   } catch (error) {
     console.error('Error in actor search:', error)

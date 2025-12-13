@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Mail, Phone, BookOpen, Ticket, Users, Shield, Crown, Theater, Star, Award, Zap } from "lucide-react"
+import { ArrowLeft, Mail, Phone, BookOpen, Ticket, Users, Shield, Crown, Theater, Star, Award, Zap, MapPin, Briefcase, Quote, Globe, Instagram, Facebook, Linkedin, Twitter, Github, Youtube, Music, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
@@ -15,7 +16,7 @@ interface PageProps {
   params: Promise<{ slug: string }>
 }
 
-function getUserBadges(user: any, ensembleTeams: any[], enrollments: any[]) {
+function getUserBadges(user: any, ensembleTeams: any[], enrollments: any[], ensembleEnrollments: any[]) {
   const badges = []
 
   // Role badges
@@ -45,13 +46,14 @@ function getUserBadges(user: any, ensembleTeams: any[], enrollments: any[]) {
     })
   }
 
-  // Ensemble member badges
-  if (ensembleTeams.length > 0) {
+  // Ensemble member badges - check BOTH ensemble_team_members AND ensemble_enrollments
+  const totalEnsembles = ensembleTeams.length + ensembleEnrollments.length
+  if (totalEnsembles > 0) {
     badges.push({
       label: 'Ensemblemedlem',
       variant: 'outline' as const,
       icon: Users,
-      description: `Medlem i ${ensembleTeams.length} ensemble${ensembleTeams.length > 1 ? 'r' : ''}`
+      description: `Medlem i ${totalEnsembles} ensemble${totalEnsembles > 1 ? 'r' : ''}`
     })
   }
 
@@ -65,8 +67,8 @@ function getUserBadges(user: any, ensembleTeams: any[], enrollments: any[]) {
     })
   }
 
-  // VIP badge for users with many activities
-  const totalActivities = ensembleTeams.length + enrollments.length
+  // VIP badge for users with many activities - include BOTH ensemble types
+  const totalActivities = totalEnsembles + enrollments.length
   if (totalActivities >= 5) {
     badges.push({
       label: 'VIP Medlem',
@@ -98,7 +100,7 @@ async function getUserProfile(slug: string) {
   const { data: user } = await supabase
     .from("users")
     .select("*")
-    .eq("slug", slug)
+    .eq("profile_slug", slug)
     .eq("is_public", true)
     .single()
 
@@ -192,12 +194,21 @@ async function getUserProfile(slug: string) {
     .order("created_at", { ascending: false })
     .limit(5)
 
-  // Get user's ensemble team memberships
+  // Get user's ensemble team memberships (LEGACY SYSTEM)
   const { data: ensembleTeams } = await supabase
     .from("ensemble_team_members")
     .select(`
       *,
-      ensemble:ensembles(id, title, slug)
+      ensemble:ensembles(
+        id, 
+        title, 
+        slug, 
+        stage, 
+        banner_url, 
+        synopsis_short,
+        yellow_team_name,
+        blue_team_name
+      )
     `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
@@ -245,6 +256,35 @@ async function getUserProfile(slug: string) {
     actorRoles = roles || []
   }
 
+  // Get user's featured roles (if enabled and is an actor)
+  let featuredRoles = []
+  if (user.show_featured_roles && actorId) {
+    const { data: featured } = await supabase
+      .from("featured_roles")
+      .select(`
+        *,
+        role:roles(
+          id,
+          character_name,
+          importance,
+          ensemble:ensembles(id, title, slug, thumbnail_url, premiere_date)
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("display_order", { ascending: true })
+    
+    featuredRoles = featured || []
+  }
+
+  // Get debug settings
+  const { data: debugSettings } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "debug")
+    .single()
+  
+  const showDebug = debugSettings?.value?.show_profile_ensemble_debug || false
+
   return {
     user,
     enrollments: enrollments || [],
@@ -252,9 +292,12 @@ async function getUserProfile(slug: string) {
     ensembleTeams: ensembleTeams || [],
     actorData,
     actorRoles,
+    featuredRoles,
     userEnrollmentsWithShows: enrollmentsWithShows || [],
+    showDebug,
   }
 }
+
 
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params
@@ -278,18 +321,113 @@ export default async function PublicProfilePage({ params }: PageProps) {
     notFound()
   }
 
-  const { user, enrollments, bookings, ensembleTeams, actorData, actorRoles, userEnrollmentsWithShows } = data
+  const { user, enrollments, bookings, ensembleTeams, actorData, actorRoles, featuredRoles, userEnrollmentsWithShows, showDebug } = data
 
-  // Filter enrollments for productions currently "I produksjon"
-  const activeProductions = userEnrollmentsWithShows.filter((enrollment: any) => 
+  // Filter enrollments for productions currently "I produksjon" from NEW system (ensemble_enrollments)
+  const activeProductionsNew = userEnrollmentsWithShows.filter((enrollment: any) => 
     enrollment.ensemble?.stage === "I produksjon"
   )
+
+  // Also get active productions from LEGACY system (ensemble_team_members)
+  const activeProductionsLegacy = ensembleTeams
+    .filter((team: any) => team.ensemble?.stage === "I produksjon")
+    .map((team: any) => ({
+      id: team.id,
+      status: team.team, // yellow or blue
+      ensemble_id: team.ensemble_id,
+      ensemble: team.ensemble,
+      shows: [] // Legacy system doesn't have show tracking in the same way
+    }))
+
+  // Combine both systems
+  const activeProductions = [...activeProductionsNew, ...activeProductionsLegacy]
+
+  // Debug info for ensemble banner
+  const debugInfo = {
+    userName: user.full_name,
+    newSystemEnrollments: userEnrollmentsWithShows.length,
+    newSystemData: userEnrollmentsWithShows.map((e: any) => ({
+      ensemble: e.ensemble?.title,
+      stage: e.ensemble?.stage,
+      status: e.status
+    })),
+    legacySystemMembers: ensembleTeams.length,
+    legacySystemData: ensembleTeams.map((t: any) => ({
+      ensemble: t.ensemble?.title,
+      stage: t.ensemble?.stage,
+      team: t.team
+    })),
+    activeProductionsNew: activeProductionsNew.length,
+    activeProductionsLegacy: activeProductionsLegacy.length,
+    totalActiveProductions: activeProductions.length,
+    willShowBanner: activeProductions.length > 0
+  }
+
+  const debugText = JSON.stringify(debugInfo, null, 2)
 
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
+        {/* Debug Info Banner - Only show if enabled in admin settings */}
+        {showDebug && (
+          <div className="bg-yellow-50 border-b border-yellow-200">
+            <div className="container px-4 py-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>🎭 Ensemble Banner Debug Info</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2 space-y-2">
+                    <p className="font-semibold">User: {user.full_name}</p>
+                    
+                    <div className="border-t pt-2">
+                      <p className="font-semibold">NEW System (ensemble_enrollments):</p>
+                      <p className="text-sm">Total enrollments: {userEnrollmentsWithShows.length}</p>
+                      <p className="text-sm">Active productions: {activeProductionsNew.length}</p>
+                      {userEnrollmentsWithShows.length > 0 && (
+                        <pre className="text-xs mt-1 bg-white p-2 rounded overflow-x-auto">
+                          {JSON.stringify(debugInfo.newSystemData, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+
+                    <div className="border-t pt-2">
+                      <p className="font-semibold">LEGACY System (ensemble_team_members):</p>
+                      <p className="text-sm">Total memberships: {ensembleTeams.length}</p>
+                      <p className="text-sm">Active productions: {activeProductionsLegacy.length}</p>
+                      {ensembleTeams.length > 0 && (
+                        <pre className="text-xs mt-1 bg-white p-2 rounded overflow-x-auto">
+                          {JSON.stringify(debugInfo.legacySystemData, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+
+                    <div className="border-t pt-2">
+                      <p className="font-semibold">RESULT:</p>
+                      <p className="text-sm">Total active productions: {activeProductions.length}</p>
+                      <p className="text-sm">
+                        Banner will show: <span className="font-bold">{activeProductions.length > 0 ? "✅ YES" : "❌ NO"}</span>
+                      </p>
+                  </div>
+
+                  <div className="border-t pt-2">
+                    <p className="text-sm italic">WHY: Banner only shows for ensembles with stage = &quot;I produksjon&quot;</p>
+                  </div>
+
+                  <details className="border-t pt-2">
+                    <summary className="cursor-pointer text-sm font-semibold">Copy Full JSON</summary>
+                    <pre className="text-xs mt-2 bg-white p-2 rounded overflow-x-auto select-all">
+                      {debugText}
+                    </pre>
+                  </details>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
+        )}
+        
         {/* Breadcrumb */}
         <div className="bg-muted/50 border-b">
           <div className="container px-4 py-3">
@@ -303,14 +441,51 @@ export default async function PublicProfilePage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Profile Header */}
-        <section className="bg-gradient-to-r from-primary/10 to-primary/5 py-12 border-b">
-          <div className="container px-4">
+        {/* Custom Banner */}
+        {user.banner_url && (
+          <section className="relative h-64 md:h-80 overflow-hidden border-b">
+            <Image
+              src={user.banner_url}
+              alt={`${user.full_name} banner`}
+              fill
+              className="object-cover"
+              priority
+            />
+            <div 
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to bottom, transparent 0%, ${user.profile_tint || '#6366f1'}22 100%)`
+              }}
+            />
+          </section>
+        )}
+
+        {/* Profile Header with Custom Styling */}
+        <section 
+          className="relative py-12 border-b"
+          style={{
+            background: !user.banner_url 
+              ? user.banner_style === 'gradient'
+                ? `linear-gradient(135deg, ${user.profile_tint || '#6366f1'}22 0%, ${user.profile_tint || '#6366f1'}11 100%)`
+                : user.banner_style === 'solid'
+                ? `${user.profile_tint || '#6366f1'}22`
+                : `linear-gradient(135deg, ${user.profile_tint || '#6366f1'}22 0%, ${user.profile_tint || '#6366f1'}11 100%)`
+              : 'transparent'
+          }}
+        >
+          <div className="container px-4 relative z-10">
             <div className="flex flex-col md:flex-row md:items-start gap-8">
               {/* Avatar */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0" style={{ marginTop: user.banner_url ? '-80px' : '0' }}>
                 {user.avatar_url ? (
-                  <div className="h-32 w-32 relative rounded-full overflow-hidden bg-muted">
+                  <div 
+                    className="h-32 w-32 relative rounded-full overflow-hidden shadow-xl bg-background"
+                    style={{ 
+                      borderWidth: '4px',
+                      borderStyle: 'solid',
+                      borderColor: user.profile_border_color || '#e5e7eb'
+                    }}
+                  >
                     <Image
                       src={user.avatar_url}
                       alt={user.full_name}
@@ -319,8 +494,19 @@ export default async function PublicProfilePage({ params }: PageProps) {
                     />
                   </div>
                 ) : (
-                  <div className="h-32 w-32 rounded-full bg-primary/20 flex items-center justify-center">
-                    <span className="text-4xl font-bold text-primary/50">
+                  <div 
+                    className="h-32 w-32 rounded-full flex items-center justify-center shadow-xl"
+                    style={{ 
+                      backgroundColor: `${user.profile_tint || '#6366f1'}33`,
+                      borderWidth: '4px',
+                      borderStyle: 'solid',
+                      borderColor: user.profile_border_color || '#e5e7eb'
+                    }}
+                  >
+                    <span 
+                      className="text-4xl font-bold"
+                      style={{ color: user.profile_text_color || '#000000' }}
+                    >
                       {user.full_name.charAt(0).toUpperCase()}
                     </span>
                   </div>
@@ -329,11 +515,36 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
               {/* Profile Info */}
               <div className="flex-1">
-                <h1 className="text-4xl font-bold mb-2">{user.full_name}</h1>
+                <h1 
+                  className="text-4xl font-bold mb-2"
+                  style={{ color: user.profile_text_color || 'inherit' }}
+                >
+                  {user.full_name}
+                </h1>
+
+                {/* Location & Occupation */}
+                {(user.location || user.occupation) && (
+                  <div 
+                    className="flex flex-wrap gap-3 mb-3 text-muted-foreground"
+                  >
+                    {user.occupation && (
+                      <div className="flex items-center gap-1">
+                        <Briefcase className="h-4 w-4" />
+                        <span className="text-sm">{user.occupation}</span>
+                      </div>
+                    )}
+                    {user.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        <span className="text-sm">{user.location}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* User Badges */}
                 {(() => {
-                  const badges = getUserBadges(user, ensembleTeams, enrollments)
+                  const badges = getUserBadges(user, ensembleTeams, enrollments, userEnrollmentsWithShows)
                   if (badges.length === 0) return null
                   
                   return (
@@ -357,31 +568,146 @@ export default async function PublicProfilePage({ params }: PageProps) {
                 })()}
 
                 {user.bio_short && (
-                  <p className="text-lg text-muted-foreground mb-4">{user.bio_short}</p>
+                  <p className="text-lg mb-4 text-muted-foreground">
+                    {user.bio_short}
+                  </p>
                 )}
 
-                {user.bio_long && (
-                  <div className="text-muted-foreground whitespace-pre-wrap mb-6 max-w-2xl">
-                    {user.bio_long}
+                {user.bio && (
+                  <div className="whitespace-pre-wrap mb-6 max-w-2xl text-muted-foreground">
+                    {user.bio}
                   </div>
                 )}
 
-                {/* Contact Info */}
-                <div className="flex flex-col gap-2 text-sm">
-                  {user.email && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <a href={`mailto:${user.email}`} className="hover:text-foreground">
-                        {user.email}
-                      </a>
+                {/* Favorite Quote */}
+                {user.favorite_quote && (
+                  <div 
+                    className="flex items-start gap-2 mb-6 p-4 rounded-lg border"
+                    style={{ 
+                      backgroundColor: `${user.profile_tint || '#6366f1'}11`,
+                      borderColor: `${user.profile_tint || '#6366f1'}33`
+                    }}
+                  >
+                    <Quote className="h-5 w-5 flex-shrink-0 mt-1" style={{ color: user.profile_tint || '#6366f1' }} />
+                    <p className="italic text-muted-foreground">{user.favorite_quote}</p>
+                  </div>
+                )}
+
+                {/* Interests, Skills, Languages */}
+                {(user.interests?.length > 0 || user.skills?.length > 0 || user.languages_spoken?.length > 0) && (
+                  <div className="space-y-3 mb-6">
+                    {user.interests && user.interests.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-muted-foreground">
+                          Interesser
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {user.interests.map((interest: string, idx: number) => (
+                            <Badge key={idx} variant="secondary">
+                              {interest}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {user.skills && user.skills.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-muted-foreground">
+                          Ferdigheter
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {user.skills.map((skill: string, idx: number) => (
+                            <Badge key={idx} variant="default" style={{ backgroundColor: user.profile_tint || '#6366f1' }}>
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {user.languages_spoken && user.languages_spoken.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-muted-foreground">
+                          Språk
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {user.languages_spoken.map((lang: string, idx: number) => (
+                            <Badge key={idx} variant="outline">
+                              {lang}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Contact & Social Links */}
+                <div className="space-y-4">
+                  {/* Contact Info */}
+                  {(user.show_email || user.show_phone) && (
+                    <div className="flex flex-col gap-2 text-sm">
+                      {user.show_email && user.email && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Mail className="h-4 w-4" />
+                          <a href={`mailto:${user.email}`} className="hover:underline">
+                            {user.email}
+                          </a>
+                        </div>
+                      )}
+                      {user.show_phone && user.phone && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Phone className="h-4 w-4" />
+                          <a href={`tel:${user.phone}`} className="hover:underline">
+                            {user.phone}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )}
-                  {user.phone && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="h-4 w-4" />
-                      <a href={`tel:${user.phone}`} className="hover:text-foreground">
-                        {user.phone}
-                      </a>
+
+                  {/* Social Links */}
+                  {user.show_social_links && (
+                    <div className="flex flex-wrap gap-3">
+                      {user.website_url && (
+                        <a href={user.website_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Globe className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
+                      {user.instagram_url && (
+                        <a href={user.instagram_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Instagram className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
+                      {user.facebook_url && (
+                        <a href={user.facebook_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Facebook className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
+                      {user.linkedin_url && (
+                        <a href={user.linkedin_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Linkedin className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
+                      {user.twitter_url && (
+                        <a href={user.twitter_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Twitter className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
+                      {user.github_url && (
+                        <a href={user.github_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Github className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
+                      {user.youtube_url && (
+                        <a href={user.youtube_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Youtube className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
+                      {user.tiktok_url && (
+                        <a href={user.tiktok_url} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+                          <Music className="h-5 w-5" style={{ color: user.profile_tint || '#6366f1' }} />
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
@@ -577,6 +903,76 @@ export default async function PublicProfilePage({ params }: PageProps) {
         <section className="py-12">
           <div className="container px-4">
             <div className="max-w-4xl">
+              {/* Featured Roles Section (Actor Showcase) */}
+              {user.show_featured_roles && featuredRoles.length > 0 && (
+                <div className="mb-12">
+                  <h2 className="text-3xl font-bold mb-6 flex items-center gap-2">
+                    <Star className="h-7 w-7 text-yellow-500" />
+                    Utvalgte Roller
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Mine stolteste prestasjoner på scenen
+                  </p>
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {featuredRoles.map((featured: any) => {
+                      const role = featured.role
+                      if (!role) return null
+                      
+                      return (
+                        <Card key={featured.id} className="hover:shadow-xl transition-all hover:scale-105">
+                          <CardContent className="pt-4">
+                            <div className="space-y-3">
+                              {(featured.featured_image_url || role.ensemble?.thumbnail_url) && (
+                                <div className="relative w-full h-40 rounded-md overflow-hidden">
+                                  <Image
+                                    src={featured.featured_image_url || role.ensemble.thumbnail_url}
+                                    alt={role.character_name}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                  <div className="absolute top-2 right-2">
+                                    <Badge className="bg-yellow-500 text-yellow-950">
+                                      <Star className="h-3 w-3 mr-1" />
+                                      Utvalgt
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )}
+                              <div>
+                                <h3 className="font-bold text-lg">{role.character_name}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {role.ensemble?.title}
+                                </p>
+                                {role.importance && (
+                                  <Badge variant="outline" className="mt-2 text-xs">
+                                    {role.importance === 'lead' ? 'Hovedrolle' : role.importance === 'supporting' ? 'Birolle' : 'Ensemble'}
+                                  </Badge>
+                                )}
+                                {featured.notes && (
+                                  <p className="text-sm text-muted-foreground mt-3 italic">
+                                    &quot;{featured.notes}&quot;
+                                  </p>
+                                )}
+                                {role.ensemble?.premiere_date && (
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    Premiere: {new Date(role.ensemble.premiere_date).toLocaleDateString("no-NO")}
+                                  </p>
+                                )}
+                              </div>
+                              <Button asChild variant="default" size="sm" className="w-full">
+                                <Link href={`/ensemble/${role.ensemble?.slug}`}>
+                                  Se forestilling
+                                </Link>
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Actor Section */}
               {actorData && (
                 <div className="mb-12">

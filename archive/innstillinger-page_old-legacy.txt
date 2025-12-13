@@ -1,0 +1,10 @@
+FULL LEGACY ARCHIVE: innstillinger/page_old.tsx
+
+This file contains an archived copy of the original `app/min-side/innstillinger/page_old.tsx`.
+It was moved here because the original contained legacy ambient React type declarations and
+non-ESM style exports that broke TypeScript when present inside the `app/` route tree.
+
+If you need to restore or inspect the original file, find it in source control (git) or contact
+the maintainer. Do NOT move this file back into `app/`.
+
+(Original contents have been preserved elsewhere if needed.)

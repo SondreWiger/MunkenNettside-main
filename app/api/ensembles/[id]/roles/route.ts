@@ -130,6 +130,32 @@ export async function PUT(
       console.log(`Processing role ${index + 1}:`, role)
       
       if (role.id) {
+        // Update existing role - first check if it exists
+        const { data: existingRole } = await supabase
+          .from('roles')
+          .select('id')
+          .eq('id', role.id)
+          .maybeSingle()
+        
+        if (!existingRole) {
+          console.log(`Role ${role.id} not found, creating new one instead`)
+          // If role doesn't exist, create it
+          const insertData = {
+            ensemble_id: ensembleId,
+            character_name: role.character_name,
+            description: role.description || null,
+            importance: role.importance || 'supporting',
+            yellow_actor_id: role.yellow_actor?.id || null,
+            blue_actor_id: role.blue_actor?.id || null
+          }
+          
+          return supabase
+            .from('roles')
+            .insert(insertData)
+            .select()
+            .single()
+        }
+        
         // Update existing role
         const updateData = {
           character_name: role.character_name,
@@ -183,6 +209,15 @@ export async function PUT(
           error: 'Database tables not initialized. Please run database setup first.',
           code: 'TABLES_NOT_EXIST'
         }, { status: 500 })
+      }
+      
+      // Check for duplicate key errors
+      if (errors.some(e => e.error?.code === '23505')) {
+        return NextResponse.json({ 
+          error: 'A role with this character name already exists in this ensemble. Each role must have a unique name.',
+          code: 'DUPLICATE_ROLE_NAME',
+          details: errors
+        }, { status: 409 })
       }
       
       return NextResponse.json({ error: 'Failed to update some roles', details: errors }, { status: 500 })

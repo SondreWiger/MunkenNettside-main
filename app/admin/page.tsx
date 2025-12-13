@@ -155,9 +155,7 @@ export default async function AdminDashboard() {
         </Card>
       </div>
 
-      <div className="mb-8">
-        <DatabaseSetup />
-      </div>
+
 
       <h2 className="text-2xl font-bold mb-4">Hurtigmeny</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

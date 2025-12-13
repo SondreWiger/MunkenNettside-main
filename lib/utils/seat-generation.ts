@@ -29,25 +29,19 @@ export async function generateSeatsFromConfig(showId: string, supabaseClient?: a
   const seatMapConfig = show.venue.seat_map_config
   const seatsToCreate: any[] = []
 
-  // Check if seats already exist for this show
-  const { data: existingSeats } = await supabase
+  // Fetch existing seats for this show and avoid overwriting them.
+  // We used to delete all seats and recreate them, but that erased runtime
+  // reservation/sold state (causing reservations to disappear). Instead,
+  // preserve existing seats and only insert new seats that are missing.
+  const { data: existingSeatsList } = await supabase
     .from('seats')
-    .select('id')
+    .select('section, row, number')
     .eq('show_id', showId)
-    .limit(1)
 
-  if (existingSeats && existingSeats.length > 0) {
-    console.log("Seats already exist for this show, returning existing seats");
-    const { data: seats } = await supabase
-      .from('seats')
-      .select('*')
-      .eq('show_id', showId)
-      .order('section')
-      .order('row')
-      .order('number')
-    
-    return { seats: seats || [], generated: false, count: seats?.length || 0 }
-  }
+  const existingKeys = new Set<string>()
+  ;(existingSeatsList || []).forEach((s: any) => {
+    existingKeys.add(`${s.section}::${String(s.row)}::${String(s.number)}`)
+  })
 
   // Process SimpleSeatMap format (our new format)
   if (seatMapConfig.seats && Array.isArray(seatMapConfig.seats)) {
@@ -74,14 +68,22 @@ export async function generateSeatsFromConfig(showId: string, supabaseClient?: a
             status = 'available';
         }
         
-        seatsToCreate.push({
+        // Normalize row as string and number as integer to avoid NaN/encoding issues
+        const normalizedRow = seat.row != null ? String(seat.row) : 'A'
+        const normalizedNumber = Number.isFinite(Number(seat.number)) ? Number(seat.number) : (seat.number ? parseInt(String(seat.number)) || 0 : 0)
+
+        const key = `Sal::${normalizedRow}::${normalizedNumber}`
+        // Only create if it doesn't already exist - preserve reserved/sold
+        if (!existingKeys.has(key)) {
+          seatsToCreate.push({
           show_id: showId,
           section: 'Sal', // SimpleSeatMap uses single section
-          row: seat.row,
-          number: seat.number,
+          row: normalizedRow,
+          number: normalizedNumber,
           price_nok: show.base_price_nok || 250,
           status: status,
-        });
+          })
+        }
       }
     });
   }
@@ -96,14 +98,21 @@ export async function generateSeatsFromConfig(showId: string, supabaseClient?: a
         const section = sections.find((s: any) => s.id === seat.section)
         const priceMultiplier = section?.priceMultiplier || 1.0
         
-        seatsToCreate.push({
+        // Normalize for safety
+        const normalizedRowV3 = seat.row != null ? String(seat.row) : (seat.rowLabel ? String(seat.rowLabel) : 'A')
+        const normalizedNumberV3 = Number.isFinite(Number(seat.number)) ? Number(seat.number) : (seat.number ? parseInt(String(seat.number)) || 0 : 0)
+
+        const key = `${section?.name || seat.section || 'Sal'}::${normalizedRowV3}::${normalizedNumberV3}`
+        if (!existingKeys.has(key)) {
+          seatsToCreate.push({
           show_id: showId,
           section: section?.name || seat.section || 'Sal',
-          row: seat.row || 'A',
-          number: seat.number || 1,
+          row: normalizedRowV3,
+          number: normalizedNumberV3,
           price_nok: Math.round((show.base_price_nok || 250) * priceMultiplier),
           status: 'available',
-        })
+          })
+        }
       }
     })
   }
@@ -126,18 +135,40 @@ export async function generateSeatsFromConfig(showId: string, supabaseClient?: a
 
   console.log(`Prepared ${seatsToCreate.length} seats for creation`);
 
-  // Insert seats into database
+  // Insert new seats into database (don't delete existing seats)
   if (seatsToCreate.length > 0) {
-    const { data: newSeats, error } = await supabase
-      .from('seats')
-      .insert(seatsToCreate)
-      .select()
-
-    if (error) {
-      console.error("Error creating seats:", error);
-      throw error
+    let newSeats, error;
+    try {
+      const result = await supabase
+        .from('seats')
+        .insert(seatsToCreate)
+        .select();
+      newSeats = result.data;
+      error = result.error;
+    } catch (err) {
+      error = err;
     }
-
+    // If duplicate error (some concurrent process inserted seats since we checked),
+    // don't delete existing seats (that would wipe reservations). Instead re-fetch
+    // the current seats for the show and use those as the result.
+    if (error && error.code === '23505') {
+      console.warn('Duplicate seat error detected - re-querying existing seats instead of deleting')
+      const { data: reFetched } = await supabase
+        .from('seats')
+        .select()
+        .eq('show_id', showId)
+      newSeats = reFetched
+      error = null
+    }
+    if (error) {
+      console.error("Error creating seats:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      throw new Error(`Failed to create seats: ${error.message || 'Unknown error'}`)
+    }
     console.log(`Successfully created ${newSeats?.length || 0} seats`);
     return { seats: newSeats || [], generated: true, count: newSeats?.length || 0 }
   }

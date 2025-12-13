@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { UserNotifications } from "@/components/layout/user-notifications"
 
 const navigation = [
   { name: "Hjem", href: "/", icon: Home },
@@ -91,6 +92,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-4">
+          {user && <UserNotifications />}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -129,9 +131,9 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/innstillinger" className="flex items-center gap-2">
+                  <Link href="/admin" className="flex items-center gap-2">
                     <Settings className="h-4 w-4" />
-                    Innstillinger
+                    Admin
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

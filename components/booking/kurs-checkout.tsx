@@ -433,6 +433,21 @@ export function KursCheckout() {
                         `Bekreft påmelding - ${formatPrice(calculatePrice())}`
                       )}
                     </Button>
+                    {/* DEV SKIP BUTTON */}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full mt-2"
+                      disabled={isProcessing || !acceptTerms}
+                      onClick={async () => {
+                        setIsProcessing(true)
+                        setError(null)
+                        // Simulate enrollment success
+                        await handleSubmit({ preventDefault: () => {} } as any)
+                      }}
+                    >
+                      Skip (dev) – Simuler påmelding
+                    </Button>
                   </form>
                 </CardContent>
               </Card>

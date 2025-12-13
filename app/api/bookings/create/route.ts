@@ -149,8 +149,50 @@ export async function POST(request: NextRequest) {
     // Update booking with QR data
     await supabase.from("bookings").update({ qr_code_data: qrCodeDataString }).eq("id", booking.id)
 
-    // No longer update old seats table - seats are generated dynamically from venue config
-    console.log("[v0] Skipping old seats table update (seats now generated from venue config)")
+    // Update seats to 'sold' and clear any reservation metadata.
+    // Seats payload may contain either seat IDs or positional objects; handle both.
+    try {
+      // Extract IDs if provided
+      const seatIdsFromPayload = (seats || []).filter((s: any) => s && (s.id || s.uuid)).map((s: any) => s.id || s.uuid)
+
+      if (seatIdsFromPayload.length > 0) {
+        const { error: updateSeatsError } = await supabase
+          .from("seats")
+          .update({ status: "sold", reserved_until: null })
+          .in("id", seatIdsFromPayload)
+          .eq("show_id", showId)
+
+        if (updateSeatsError) {
+          console.error("[v0] Update seats by id error:", updateSeatsError)
+        } else {
+          console.log(`[v0] Marked ${seatIdsFromPayload.length} seats as sold by id`)
+        }
+      }
+
+      // For seats that don't have explicit ids, try to update by position (section/row/number)
+      const seatsByPosition = (seats || []).filter((s: any) => s && !s.id && s.section && (s.row != null) && (s.number != null))
+      for (const s of seatsByPosition) {
+        try {
+          const { error: posUpdErr } = await supabase
+            .from("seats")
+            .update({ status: "sold", reserved_until: null })
+            .eq("show_id", showId)
+            .eq("section", s.section)
+            .eq("row", String(s.row))
+            .eq("number", Number(s.number))
+
+          if (posUpdErr) {
+            console.error("[v0] Update seat by position failed:", posUpdErr, { seat: s })
+          } else {
+            console.log("[v0] Marked seat as sold by position:", { section: s.section, row: s.row, number: s.number })
+          }
+        } catch (err) {
+          console.error("[v0] Unexpected error updating seat by position:", err, { seat: s })
+        }
+      }
+    } catch (err) {
+      console.error("[v0] Error while updating seats to sold:", err)
+    }
 
     // Update available seats count
     await supabase

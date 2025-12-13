@@ -13,13 +13,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
+import { PayPalButton } from "@/components/payment/paypal-button"
+import { VippsButton } from "@/components/payment/vipps-button"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { formatPrice, formatDateTime } from "@/lib/utils/booking"
 import type { Show } from "@/lib/types"
+import { toast } from "sonner"
 
 interface BookingData {
   showId: string
-  seats: Array<{ row: number; col: number; section: string }>
+  // seats may arrive in legacy numeric form {row:number, col:number} or modern {row: string, number: number}
+  seats: Array<{ row: number | string; col?: number; number?: number; section: string; status?: string; reserved_until?: string }>
   totalPrice: number
   reservedUntil: string
 }
@@ -27,7 +31,7 @@ interface BookingData {
 export function TicketCheckout() {
   const [bookingData, setBookingData] = useState<BookingData | null>(null)
   const [show, setShow] = useState<Show | null>(null)
-  const [seats, setSeats] = useState<Array<{ row: number; col: number; section: string }>>([])
+  const [seats, setSeats] = useState<Array<{ row: number | string; col?: number; number?: number; section: string; status?: string; reserved_until?: string }>>([])
   const [customerName, setCustomerName] = useState("")
   const [customerEmail, setCustomerEmail] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
@@ -40,6 +44,7 @@ export function TicketCheckout() {
   const [discountCode, setDiscountCode] = useState("")
   const [discountError, setDiscountError] = useState<string | null>(null)
   const [appliedDiscount, setAppliedDiscount] = useState<{ type: string; value: number } | null>(null)
+  const [showPayPal, setShowPayPal] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = getSupabaseBrowserClient()
@@ -90,6 +95,29 @@ export function TicketCheckout() {
     }
 
     fetchData()
+
+    // Fetch latest seat statuses for this show so we can display whether seats are reserved/sold
+    const fetchSeatStatuses = async () => {
+      try {
+        const res = await fetch(`/api/seats/list?showId=${data.showId}`)
+        if (!res.ok) return
+        const json = await res.json()
+        const serverSeats: any[] = json.seats || []
+        // Map server seat statuses into local seats where possible
+        const merged = (data.seats || []).map(s => {
+          // s may be legacy {row:number,col:number} or modern {row:string,number:number}
+          const sRow = (s as any).row
+          const sNumber = (s as any).number != null ? (s as any).number : ((s as any).col != null ? (s as any).col + 1 : null)
+          const match = serverSeats.find(ss => ss.section === s.section && String(ss.row) === String(sRow) && Number(ss.number) === Number(sNumber))
+          return match ? { ...s, status: match.status, reserved_until: match.reserved_until } : s
+        })
+        setSeats(merged)
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    fetchSeatStatuses()
 
     // Pre-fill user data if logged in
     const getUser = async () => {
@@ -222,11 +250,21 @@ export function TicketCheckout() {
       return
     }
 
+    console.log("[Ticket Checkout] Showing PayPal button")
+    
+    // Show PayPal payment interface
+    setShowPayPal(true)
+    setError(null)
+  }
+
+  const handlePayPalSuccess = async (details: any) => {
+    if (!bookingData || !show) return
+
     setIsProcessing(true)
     setError(null)
 
     try {
-      // Create booking via API (mock payment)
+      // Create booking via API with PayPal payment
       const payload = {
         showId: bookingData.showId,
         seats: bookingData.seats,
@@ -236,6 +274,7 @@ export function TicketCheckout() {
         specialRequests,
         totalAmount: calculatePrice(),
         discountCode: appliedDiscount ? discountCode.toUpperCase() : null,
+        paypalOrderId: details.id,
       }
 
       console.log("[v0] Sending booking payload:", payload)
@@ -252,9 +291,21 @@ export function TicketCheckout() {
         throw new Error(result.error || "Kunne ikke fullføre bestillingen")
       }
 
+      // Increment discount code usage if applied
+      if (appliedDiscount && discountCode) {
+        await supabase
+          .from("discount_codes")
+          .update({ 
+            current_uses: supabase.raw("current_uses + 1") 
+          })
+          .eq("code", discountCode.toUpperCase())
+      }
+
       // Clear session storage
       sessionStorage.removeItem("booking")
 
+      toast.success("Betaling fullført!")
+      
       // Redirect to confirmation
       router.push(`/bekreftelse/${result.bookingId}`)
     } catch (err) {
@@ -296,7 +347,8 @@ export function TicketCheckout() {
           <span className={`font-mono text-lg font-bold ${timeLeft < 120 ? "text-destructive" : ""}`}>
             {formatTimeLeft()}
           </span>
-        </AlertDescription>
+
+      </AlertDescription>
       </Alert>
 
       <div className="grid gap-8 lg:grid-cols-3">
@@ -444,23 +496,83 @@ export function TicketCheckout() {
                   </Alert>
                 )}
 
-                <Button type="submit" disabled={isProcessing || !acceptTerms} size="lg" className="w-full h-14 text-lg">
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Behandler...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="mr-2 h-5 w-5" />
-                      Betal {formatPrice(calculatePrice())}
-                    </>
-                  )}
-                </Button>
+                {showPayPal ? (
+                  <div className="space-y-4">
+                    <PayPalButton
+                      amount={calculatePrice()}
+                      currency="NOK"
+                      description={`Billett til ${show?.title || show?.ensemble?.title || "forestilling"}`}
+                      onSuccess={handlePayPalSuccess}
+                      onError={(error) => {
+                        setError("Betaling feilet. Vennligst prøv igjen.")
+                        setShowPayPal(false)
+                        setIsProcessing(false)
+                      }}
+                      onCancel={() => {
+                        setShowPayPal(false)
+                      }}
+                    />
+                    
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">eller</span>
+                      </div>
+                    </div>
 
-                <p className="text-sm text-muted-foreground text-center">
-                  Midlertidig: Betaling simuleres for testing. Vipps-integrasjon kommer snart.
-                </p>
+                    <VippsButton
+                      amount={calculatePrice()}
+                      currency="NOK"
+                      description={`Billett til ${show?.title || show?.ensemble?.title || "forestilling"}`}
+                    />
+
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setShowPayPal(false)}
+                      className="w-full"
+                    >
+                      Avbryt
+                    </Button>
+
+                    {/* DEV SKIP BUTTON */}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full mt-2"
+                      onClick={async () => {
+                        setIsProcessing(true)
+                        setError(null)
+                        // Simulate payment success with dummy order id
+                        await handlePayPalSuccess({ id: "dev-skip" })
+                      }}
+                    >
+                      Skip (dev) – Simuler betaling
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Button type="submit" disabled={isProcessing || !acceptTerms} size="lg" className="w-full h-14 text-lg">
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Behandler...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="mr-2 h-5 w-5" />
+                          Betal {formatPrice(calculatePrice())}
+                        </>
+                      )}
+                    </Button>
+
+                    <p className="text-sm text-muted-foreground text-center">
+                      Betaling gjøres via PayPal.
+                    </p>
+                  </>
+                )}
               </form>
             </CardContent>
           </Card>
@@ -482,13 +594,27 @@ export function TicketCheckout() {
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-2">Seter ({seats.length})</h4>
                 <div className="space-y-1 text-sm">
-                  {seats.map((seat, idx) => (
-                    <div key={`${seat.section}-${seat.row}-${seat.col}`} className="flex justify-between">
-                      <span>
-                        {seat.section}, Rad {String.fromCharCode(65 + seat.row)}, Sete {seat.col + 1}
-                      </span>
-                    </div>
-                  ))}
+                  {seats.map((seat, idx) => {
+                    // Support both legacy numeric row/col and modern {row: 'A', number: 1}
+                    const displayRow = typeof seat.row === 'number' ? String.fromCharCode(65 + seat.row) : String(seat.row || '?')
+                    const displayNumber = (seat as any).number != null ? (seat as any).number : (seat.col != null ? seat.col + 1 : '?')
+                    return (
+                      <div key={`${seat.section}-${displayRow}-${displayNumber}`} className="flex justify-between items-center">
+                        <span>
+                          {seat.section}, Rad {displayRow}, Sete {displayNumber}
+                          {seat.status === 'reserved' && (
+                            <span className="ml-3 inline-flex items-center rounded bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5">Reservert</span>
+                          )}
+                          {seat.status === 'sold' && (
+                            <span className="ml-3 inline-flex items-center rounded bg-red-100 text-red-800 text-xs px-2 py-0.5">Solgt</span>
+                          )}
+                          {seat.status === 'blocked' && (
+                            <span className="ml-3 inline-flex items-center rounded bg-gray-100 text-gray-700 text-xs px-2 py-0.5">Blokkert</span>
+                          )}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 

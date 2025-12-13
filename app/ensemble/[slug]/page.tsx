@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { EnsembleSignupCard } from "@/components/booking/ensemble-signup-card"
+import { EnsembleEnrollmentSection } from "@/components/booking/ensemble-enrollment-section"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { formatDate, formatPrice } from "@/lib/utils/booking"
 import type { Ensemble, Recording, Show, CastMember } from "@/lib/types"
@@ -1191,6 +1192,7 @@ export default async function EnsemblePage({ params }: PageProps) {
                   ensembleSlug={ensemble.slug}
                   ensembleTitle={ensemble.title}
                   stage={ensemble.stage}
+                  participationPrice={ensemble.participation_price_nok}
                 />
               </div>
             </div>
@@ -1201,6 +1203,16 @@ export default async function EnsemblePage({ params }: PageProps) {
         <section className="border-b bg-card">
           <div className="container px-4 py-8">
             <div className="flex flex-wrap gap-4">
+              {/* Enrollment button for "Påmelding" stage */}
+              {ensemble.stage === "Påmelding" && (
+                <Button asChild size="lg" className="h-14 px-8 text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                  <Link href={`/ensemble/${ensemble.slug}/bestill`}>
+                    <Users className="mr-2 h-5 w-5" />
+                    Meld deg på
+                  </Link>
+                </Button>
+              )}
+
               {hasRecordings && (
                 <>
                   {yellowRecordings.length > 0 && (
@@ -1238,6 +1250,18 @@ export default async function EnsemblePage({ params }: PageProps) {
                 </Button>
               )}
             </div>
+
+            {/* Price information */}
+            {ensemble.stage === "Påmelding" && ensemble.participation_price_nok > 0 && (
+              <p className="mt-4 text-lg font-semibold text-green-600">
+                Deltakelsespris: {formatPrice(ensemble.participation_price_nok)}
+              </p>
+            )}
+            {ensemble.stage === "Påmelding" && (!ensemble.participation_price_nok || ensemble.participation_price_nok === 0) && (
+              <p className="mt-4 text-lg font-semibold text-green-600">
+                Gratis deltakelse
+              </p>
+            )}
 
             {hasRecordings && (
               <p className="mt-4 text-lg font-semibold text-primary">
@@ -1324,6 +1348,15 @@ export default async function EnsemblePage({ params }: PageProps) {
 
               {/* Right Column - Info & Shows */}
               <div className="space-y-8">
+                {/* Enrollment Section - only show if in enrollment stage */}
+                {ensemble.stage === "Påmelding" && (
+                  <EnsembleEnrollmentSection 
+                    ensembleId={ensemble.id}
+                    ensembleSlug={ensemble.slug}
+                    ensembleTitle={ensemble.title}
+                  />
+                )}
+
                 {/* Quick Info */}
                 <Card>
                   <CardContent className="pt-6">

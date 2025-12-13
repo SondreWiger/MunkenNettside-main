@@ -2,11 +2,12 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { Loader2, Save, Globe, Mail, Phone } from "lucide-react"
+import { Loader2, Save, Globe, Mail, Phone, Bug } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -24,6 +25,11 @@ interface SiteSettings {
   }
 }
 
+interface DebugSettings {
+  show_profile_ensemble_debug: boolean
+  show_construction_warning: boolean
+}
+
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -35,17 +41,29 @@ export default function SettingsPage() {
     address: "",
     social_links: {},
   })
+  const [debugSettings, setDebugSettings] = useState<DebugSettings>({
+    show_profile_ensemble_debug: false,
+    show_construction_warning: false,
+  })
 
   const supabase = getSupabaseBrowserClient()
 
   useEffect(() => {
     async function loadSettings() {
       setIsLoading(true)
-      const { data } = await supabase.from("site_settings").select("*").eq("key", "general").single()
-
-      if (data?.value) {
-        setSettings(data.value as SiteSettings)
+      
+      // Load general settings
+      const { data: generalData } = await supabase.from("site_settings").select("value").eq("key", "general").maybeSingle()
+      if (generalData?.value) {
+        setSettings(generalData.value as SiteSettings)
       }
+
+      // Load debug settings
+      const { data: debugData } = await supabase.from("site_settings").select("value").eq("key", "debug").maybeSingle()
+      if (debugData?.value) {
+        setDebugSettings(debugData.value as DebugSettings)
+      }
+      
       setIsLoading(false)
     }
     loadSettings()
@@ -56,13 +74,21 @@ export default function SettingsPage() {
     setIsSaving(true)
 
     try {
-      const { error } = await supabase.from("site_settings").upsert({
+      // Save general settings
+      const { error: generalError } = await supabase.from("site_settings").upsert({
         key: "general",
         value: settings,
         updated_at: new Date().toISOString(),
       })
+      if (generalError) throw generalError
 
-      if (error) throw error
+      // Save debug settings
+      const { error: debugError } = await supabase.from("site_settings").upsert({
+        key: "debug",
+        value: debugSettings,
+        updated_at: new Date().toISOString(),
+      })
+      if (debugError) throw debugError
 
       toast.success("Innstillinger lagret!")
     } catch (error) {
@@ -187,6 +213,49 @@ export default function SettingsPage() {
                     ...p,
                     social_links: { ...p.social_links, instagram: e.target.value },
                   }))
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bug className="h-5 w-5" />
+              Debug & Utviklerverktøy
+            </CardTitle>
+            <CardDescription>Innstillinger for debugging og testing</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="show_construction_warning">Vis "Under konstruksjon" advarsel</Label>
+                <p className="text-sm text-muted-foreground">
+                  Viser en popup-advarsel når brukere laster inn siden
+                </p>
+              </div>
+              <Switch
+                id="show_construction_warning"
+                checked={debugSettings.show_construction_warning}
+                onCheckedChange={(checked) =>
+                  setDebugSettings((p) => ({ ...p, show_construction_warning: checked }))
+                }
+              />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="show_profile_ensemble_debug">Vis ensemble debug på profiler</Label>
+                <p className="text-sm text-muted-foreground">
+                  Viser detaljert informasjon om ensemble-tilhørighet på profilsider
+                </p>
+              </div>
+              <Switch
+                id="show_profile_ensemble_debug"
+                checked={debugSettings.show_profile_ensemble_debug}
+                onCheckedChange={(checked) =>
+                  setDebugSettings((p) => ({ ...p, show_profile_ensemble_debug: checked }))
                 }
               />
             </div>

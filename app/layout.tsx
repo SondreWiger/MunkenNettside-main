@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/sonner"
+import { ConstructionWarning } from "@/components/construction-warning"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="nb">
       <body className={`${inter.className} font-sans antialiased min-h-screen bg-background text-foreground`}>
+        <ConstructionWarning />
         {children}
         <Toaster />
         <Analytics />
