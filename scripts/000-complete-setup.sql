@@ -139,6 +139,23 @@ ALTER TABLE IF EXISTS public.kurs
   ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_kurs_archived ON public.kurs(archived);
 
+-- =============================================
+-- ADMIN DEVICES - trusted devices for admin users
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.admin_devices (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  device_token UUID NOT NULL UNIQUE,
+  device_name TEXT,
+  device_info JSONB DEFAULT '{}'::jsonb,
+  revoked BOOLEAN DEFAULT FALSE,
+  last_seen TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_devices_token ON public.admin_devices(device_token);
+CREATE INDEX IF NOT EXISTS idx_admin_devices_user ON public.admin_devices(user_id);
+
 
 -- =============================================
 -- ADMIN ACTION LOGS (AUDIT)

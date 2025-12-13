@@ -10,18 +10,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const supabase = await getSupabaseServerClient()
 
-    // Check current user is an admin and verified
+    // Require admin role and a trusted device cookie for performing admin actions
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     if (!currentUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: currentUserRow, error: curErr } = await supabase
-      .from('users')
-      .select('role, admin_verified')
-      .eq('id', currentUser.id)
-      .single()
+    const { cookies: cookieStore } = (await import('next/headers'))
+    const cookieObj = await cookieStore()
+    const deviceToken = cookieObj.get('admin_device')?.value || null
+    let deviceTrusted = false
+    if (deviceToken) {
+      const { data: device } = await supabase.from('admin_devices').select('*').eq('device_token', deviceToken).eq('revoked', false).single()
+      if (device && device.user_id === currentUser.id) deviceTrusted = true
+    }
 
-    if (curErr || !currentUserRow) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (currentUserRow.role !== 'admin' || currentUserRow.admin_verified !== true) {
+    const { data: currentUserRow } = await supabase.from('users').select('role').eq('id', currentUser.id).single()
+    if (currentUserRow?.role !== 'admin' || !deviceTrusted) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

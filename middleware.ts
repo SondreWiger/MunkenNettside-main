@@ -14,8 +14,32 @@ export async function middleware(request: NextRequest) {
       res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
     }
 
-    // A reasonably strict CSP to prevent inline scripts/styles (adjust as needed)
-    res.headers.set('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';")
+    // A reasonably strict CSP that allows connecting to our Supabase backend and common hosts
+    // Note: connect-src controls fetch/XHR/websocket endpoints; default-src is fallback when connect-src missing
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    let supabaseOrigin = ''
+    try {
+      if (supabaseUrl) supabaseOrigin = new URL(supabaseUrl).origin
+    } catch (e) {}
+
+    // Build connect-src list (allow self and Supabase)
+    const connectSrc = ["'self'"]
+    if (supabaseOrigin) {
+      connectSrc.push(supabaseOrigin)
+      // Also allow project wildcard subdomains for Supabase REST/auth endpoints
+      connectSrc.push('https://*.supabase.co')
+    }
+
+    const csp = [
+      "default-src 'self'",
+      "img-src 'self' data: https:",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      `connect-src ${connectSrc.join(' ')}`,
+      "frame-ancestors 'none'",
+    ].join('; ')
+
+    res.headers.set('Content-Security-Policy', csp)
 
     return res
   } catch (error) {

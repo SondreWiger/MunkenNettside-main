@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createAdminDevice } from '@/lib/admin/devices'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
@@ -82,15 +83,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    // Log successful verification
+    // Create a trusted device record for this device and set a cookie
     try {
-      const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null
-      const ua = request.headers.get('user-agent') || null
-      await supabase.from('admin_action_logs').insert({ action_type: 'admin_code_verified', performed_by: currentUser.id, target_user_id: currentUser.id, ip_address: ip, user_agent: ua, metadata: { verificationId: verification.id } })
-    } catch (err) {
-      console.error('verify-code: failed to insert audit log for success', err)
-    }
+      const ua = request.headers.get('user-agent') || 'unknown'
+      const deviceName = ua.split(') ')[0] || 'Unknown device'
+      const { device, token } = await createAdminDevice(supabase, currentUser.id, deviceName, { userAgent: ua })
 
+      // Log successful verification and device creation
+      try {
+        const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null
+        await supabase.from('admin_action_logs').insert({ action_type: 'admin_code_verified', performed_by: currentUser.id, target_user_id: currentUser.id, ip_address: ip, user_agent: ua, metadata: { verificationId: verification.id, deviceId: device.id } })
+      } catch (err) {
+        console.error('verify-code: failed to insert audit log for success', err)
+      }
+
+      // Set httpOnly cookie with device token
+      const res = NextResponse.json({ success: true })
+      res.cookies.set('admin_device', token, {
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 365,
+      })
+      return res
+    } catch (err) {
+      console.error('verify-code: device creation failed', err)
+      // fallthrough to return success without setting cookie
+    }
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('Error in verify-code:', err)

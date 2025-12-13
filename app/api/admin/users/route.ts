@@ -7,11 +7,22 @@ export async function GET() {
   try {
     const supabase = await getSupabaseServerClient()
 
-    // Only allow access to verified admins
+    // Require admin role and trusted device (or admin device cookie)
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     if (!currentUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Check device cookie
+    const { cookies: cookieStore } = (await import('next/headers'))
+    const cookieObj = await cookieStore()
+    const deviceToken = cookieObj.get('admin_device')?.value || null
+    let deviceTrusted = false
+    if (deviceToken) {
+      const { data: device } = await supabase.from('admin_devices').select('*').eq('device_token', deviceToken).eq('revoked', false).single()
+      if (device && device.user_id === currentUser.id) deviceTrusted = true
+    }
+
     const { data: currentUserRow } = await supabase.from('users').select('role, admin_verified').eq('id', currentUser.id).single()
-    if (currentUserRow?.role !== 'admin' || currentUserRow?.admin_verified !== true) {
+    if (currentUserRow?.role !== 'admin' || !deviceTrusted) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
