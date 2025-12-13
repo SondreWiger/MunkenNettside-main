@@ -214,7 +214,8 @@ export async function PUT(request: NextRequest) {
               promotedBy: currentUser?.email || currentUser?.id || undefined,
             })
           } catch (err) {
-            console.error('Error sending admin promotion email:', err)
+            console.log('ERROR: Error sending admin promotion email:', err)
+            ;(user as any)._adminNotificationError = err instanceof Error ? err.message : String(err)
           }
         }
       } catch (err) {

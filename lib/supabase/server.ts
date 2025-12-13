@@ -4,6 +4,10 @@ import { cookies } from "next/headers"
 
 export async function getSupabaseServerClient() {
   const cookieStore = await cookies()
+  // Safety check: ensure service role key is not accidentally exposed as the public anon key
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY === process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('[SECURITY] SUPABASE_SERVICE_ROLE_KEY should not equal NEXT_PUBLIC_SUPABASE_ANON_KEY - check your env')
+  }
 
   return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     cookies: {

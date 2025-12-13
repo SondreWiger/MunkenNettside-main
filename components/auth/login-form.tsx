@@ -65,6 +65,8 @@ export function LoginForm() {
         const statusData = await statusRes.json()
         if (statusData?.requiresVerification) {
           // Start admin verification flow
+          // If the server exposes an adminUuid (dev only), prefill it to help debugging
+          if (statusData?.adminUuid) setAdminUuidInput(statusData.adminUuid)
           setIsAdminVerification(true)
           return
         }
@@ -177,8 +179,19 @@ export function LoginForm() {
                     body: JSON.stringify({ adminUuid: adminUuidInput })
                   })
                   const data = await res.json()
-                  if (!res.ok) {
-                    setError(data.error || 'Kunne ikke sende kode')
+                    if (!res.ok) {
+                      if (res.status === 429) {
+                        setError('For mange forespørsler. Prøv igjen senere.')
+                        return
+                      }
+                      // Provide helpful messages for common failure modes
+                      if (data.error === 'No admin UUID set for this account') {
+                        setError('Denne kontoen har ingen Admin UUID. Kontakt teater@northem.no eller be en verifisert administrator sende koden.')
+                      } else if (data.error === 'Invalid admin UUID') {
+                        setError('Ugyldig Admin UUID. Sjekk at du skrev den riktig eller få UUID fra en administrator.')
+                      } else {
+                        setError(data.error || 'Kunne ikke sende kode')
+                      }
                   } else {
                     setIsCodeSent(true)
                     setError(null)
@@ -192,8 +205,8 @@ export function LoginForm() {
               }}
             >
               <div className="space-y-2">
-                <Label htmlFor="adminUuid">Admin UUID</Label>
-                <Input id="adminUuid" value={adminUuidInput} onChange={(e) => setAdminUuidInput(e.target.value)} required className="h-12" />
+                <Label htmlFor="adminUuid">Admin UUID (valgfritt)</Label>
+                <Input id="adminUuid" value={adminUuidInput} onChange={(e) => setAdminUuidInput(e.target.value)} className="h-12" />
               </div>
               <div className="flex gap-2 mt-4">
                 <Button type="submit" disabled={isLoading}>Send kode</Button>

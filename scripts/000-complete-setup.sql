@@ -132,6 +132,49 @@ CREATE INDEX IF NOT EXISTS idx_admin_verifications_code ON public.admin_verifica
 
 
 -- =============================================
+-- ADMIN ACTION LOGS (AUDIT)
+-- Records administrative security-relevant events for auditing and rate-limiting
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.admin_action_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  action_type TEXT NOT NULL, -- e.g., admin_code_sent, admin_code_verified, admin_code_verify_failed, admin_uuid_created
+  performed_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  target_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_action_logs_action ON public.admin_action_logs(action_type);
+CREATE INDEX IF NOT EXISTS idx_admin_action_logs_performed_by ON public.admin_action_logs(performed_by);
+CREATE INDEX IF NOT EXISTS idx_admin_action_logs_target ON public.admin_action_logs(target_user_id);
+
+-- RLS POLICIES - ADMIN VERIFICATIONS & ACTION LOGS
+ALTER TABLE public.admin_verifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage their verifications" ON public.admin_verifications;
+CREATE POLICY "Users can manage their verifications" ON public.admin_verifications
+  FOR ALL
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.admin_action_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can insert their own admin action logs" ON public.admin_action_logs;
+CREATE POLICY "Users can insert their own admin action logs" ON public.admin_action_logs
+  FOR INSERT
+  WITH CHECK (performed_by = auth.uid());
+
+DROP POLICY IF EXISTS "Admins can view admin action logs" ON public.admin_action_logs;
+CREATE POLICY "Admins can view admin action logs" ON public.admin_action_logs
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.role = 'admin' AND u.admin_verified = TRUE
+    ) OR performed_by = auth.uid()
+  );
+
+
+-- =============================================
 -- 2. ENSEMBLES TABLE
 -- =============================================
 CREATE TABLE IF NOT EXISTS public.ensembles (

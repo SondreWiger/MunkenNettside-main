@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -58,7 +59,9 @@ export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [actors, setActors] = useState<Actor[]>([])
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const router = useRouter()
   const [editingActor, setEditingActor] = useState<Actor | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [showActorDialog, setShowActorDialog] = useState(false)
@@ -105,10 +108,25 @@ export function UserManagement() {
 
   const loadData = async () => {
     setLoading(true)
-    
     try {
-      // Load users
+      // Load users (admin-only)
       const usersResponse = await fetch('/api/admin/users')
+
+      if (usersResponse.status === 401) {
+        // Not logged in — redirect to login
+        setLoading(false)
+        router.push('/logg-inn')
+        return
+      }
+
+      if (usersResponse.status === 403) {
+        // Forbidden — user isn't an admin or not verified
+        setLoading(false)
+        setForbidden(true)
+        setUsers([])
+        return
+      }
+
       const usersData = await usersResponse.json()
       setUsers(usersData.users || [])
 
@@ -119,9 +137,9 @@ export function UserManagement() {
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error("Kunne ikke laste data")
+    } finally {
+      setLoading(false)
     }
-    
-    setLoading(false)
   }
 
   const handleUpdateUser = async () => {
@@ -381,9 +399,30 @@ export function UserManagement() {
     setSendingVerificationFor(userId)
     try {
       const res = await fetch(`/api/admin/users/${userId}/send-verification`, { method: 'POST' })
+
+      if (res.status === 401) {
+        router.push('/logg-inn')
+        return
+      }
+
+      if (res.status === 403) {
+        toast.error('Du har ikke tilgang til å sende verifikasjonskoder')
+        return
+      }
+
+      if (res.status === 429) {
+        toast.error('For mange forespørsler mot denne brukeren. Prøv igjen senere.')
+        return
+      }
+
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success('Verifikasjonskode sendt')
+        if (data.adminUuidCreated) {
+          toast.success('Admin UUID opprettet og verifikasjonskode sendt')
+          console.log('Created adminUuid:', data.adminUuid)
+        } else {
+          toast.success('Verifikasjonskode sendt')
+        }
       } else {
         toast.error(`Kunne ikke sende kode: ${data.error || 'ukjent feil'}`)
       }
@@ -400,6 +439,26 @@ export function UserManagement() {
       <Card>
         <CardContent className="p-6">
           <div className="text-center">Laster...</div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (forbidden) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Ingen tilgang</CardTitle>
+          <CardDescription>Du må være en verifisert administrator for å se denne siden.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4">
+            <p className="mb-4">Hvis du mener dette er en feil, kontakt en administrator for å få verifisert kontoen din.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => router.push('/')}>Gå tilbake</Button>
+              <Button onClick={() => router.push('/logg-inn')}>Logg inn</Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     )
