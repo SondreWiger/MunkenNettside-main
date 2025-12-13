@@ -7,6 +7,14 @@ export async function GET() {
   try {
     const supabase = await getSupabaseServerClient()
 
+    // Only allow access to verified admins
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    if (!currentUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: currentUserRow } = await supabase.from('users').select('role, admin_verified').eq('id', currentUser.id).single()
+    if (currentUserRow?.role !== 'admin' || currentUserRow?.admin_verified !== true) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // Get all users with their linked actor information
     const { data: users, error } = await supabase
       .from('users')
@@ -59,11 +67,11 @@ export async function PUT(request: NextRequest) {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('role')
+      .select('role, admin_verified')
       .eq('id', currentUser.id)
       .single()
 
-    if (userData?.role !== 'admin') {
+    if (userData?.role !== 'admin' || userData?.admin_verified !== true) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
