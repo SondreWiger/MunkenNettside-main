@@ -115,6 +115,28 @@ export default function EditEnsemblePage() {
     setSaving(false)
   }
 
+  async function toggleArchive() {
+    if (!ensemble) return
+    const target = !ensemble.archived
+    try {
+      const res = await fetch(`/api/admin/ensembles/${ensembleId}/archive`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ archived: target })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(`Kunne ikke ${target ? 'arkivere' : 'gjenopprette'}: ${data.error || 'ukjent feil'}`)
+        return
+      }
+      setEnsemble({ ...ensemble, archived: data.archived })
+      toast.success(target ? 'Ensemble arkivert' : 'Ensemble gjenopprettet fra arkiv')
+    } catch (err) {
+      console.error('Error toggling archive:', err)
+      toast.error('Noe gikk galt')
+    }
+  }
+
   async function handleSaveRoles(updatedRoles: any[]) {
     try {
       console.log("Saving roles:", updatedRoles)
@@ -241,6 +263,7 @@ export default function EditEnsemblePage() {
     )
   }
 
+
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
@@ -261,6 +284,11 @@ export default function EditEnsemblePage() {
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Lagrer..." : "Lagre endringer"}
           </Button>
+          <div className="ml-4">
+            <Button onClick={toggleArchive} size="sm" variant={ensemble.archived ? 'secondary' : 'destructive'}>
+              {ensemble.archived ? 'Gjenopprett fra arkiv' : 'Arkiver ensemble'}
+            </Button>
+          </div>
         </div>
       </div>
 

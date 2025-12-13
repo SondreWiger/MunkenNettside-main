@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, User, Ticket, Film, Home, LogIn, LogOut, BookOpen, Settings, LayoutDashboard } from "lucide-react"
+import { Menu, User, Ticket, Film, Home, LogIn, LogOut, BookOpen, Settings, LayoutDashboard, Archive } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import {
@@ -21,6 +21,7 @@ const navigation = [
   { name: "Hjem", href: "/", icon: Home },
   { name: "Forestillinger", href: "/forestillinger", icon: Ticket },
   { name: "Kurs", href: "/kurs", icon: BookOpen },
+  { name: "Arkiv", href: "/archive", icon: Archive },
   { name: "Opptak", href: "/opptak", icon: Film },
 ]
 

@@ -130,6 +130,15 @@ CREATE TABLE IF NOT EXISTS public.admin_verifications (
 CREATE INDEX IF NOT EXISTS idx_admin_verifications_user ON public.admin_verifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_admin_verifications_code ON public.admin_verifications(code);
 
+-- Add archive flags to ensembles and kurs so they can be shown in archive
+ALTER TABLE IF EXISTS public.ensembles
+  ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_ensembles_archived ON public.ensembles(archived);
+
+ALTER TABLE IF EXISTS public.kurs
+  ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_kurs_archived ON public.kurs(archived);
+
 
 -- =============================================
 -- ADMIN ACTION LOGS (AUDIT)
@@ -745,7 +754,7 @@ CREATE POLICY "Allow insert on signup" ON public.users
 -- =============================================
 DROP POLICY IF EXISTS "Anyone can view published ensembles" ON public.ensembles;
 CREATE POLICY "Anyone can view published ensembles" ON public.ensembles
-  FOR SELECT USING (is_published = TRUE);
+  FOR SELECT USING (is_published = TRUE OR archived = TRUE);
 
 DROP POLICY IF EXISTS "Admins can view all ensembles" ON public.ensembles;
 CREATE POLICY "Admins can view all ensembles" ON public.ensembles
@@ -769,7 +778,7 @@ CREATE POLICY "Admins can delete ensembles" ON public.ensembles
 -- =============================================
 DROP POLICY IF EXISTS "Anyone can view published kurs" ON public.kurs;
 CREATE POLICY "Anyone can view published kurs" ON public.kurs
-  FOR SELECT USING (is_published = TRUE);
+  FOR SELECT USING (is_published = TRUE OR archived = TRUE);
 
 DROP POLICY IF EXISTS "Admins can view all kurs" ON public.kurs;
 CREATE POLICY "Admins can view all kurs" ON public.kurs
