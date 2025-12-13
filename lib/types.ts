@@ -104,6 +104,7 @@ export interface Ensemble {
   default_ticket_price_nok: number
   is_published: boolean
   featured: boolean
+  archived?: boolean
   view_count: number
   custom_sections: CustomSection[]
   created_at: string
@@ -126,6 +127,7 @@ export interface Kurs {
   price_nok: number
   is_published: boolean
   featured: boolean
+  archived?: boolean
   director?: string
   category?: string
   prerequisites?: string
