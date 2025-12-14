@@ -17,6 +17,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Check that the 'archived' column exists in the DB schema
+    const { data: colCheck } = await supabase
+      .from('information_schema.columns')
+      .select('column_name')
+      .eq('table_name', 'kurs')
+      .eq('column_name', 'archived')
+
+    if (!colCheck || colCheck.length === 0) {
+      return NextResponse.json({ error: "Database missing 'archived' column on 'kurs'. Run the latest migrations (see scripts/000-complete-setup.sql) to add it." }, { status: 500 })
+    }
+
     const { error } = await supabase.from('kurs').update({ archived }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

@@ -126,7 +126,13 @@ export default function EditEnsemblePage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(`Kunne ikke ${target ? 'arkivere' : 'gjenopprette'}: ${data.error || 'ukjent feil'}`)
+        const msg = data?.error || 'ukjent feil'
+        // Provide actionable hint for missing migration
+        if (msg.includes("missing 'archived' column")) {
+          toast.error('Kunne ikke arkivere: databasen mangler nødvendige kolonner. Kjør oppdateringsskriptene (se scripts/000-complete-setup.sql).')
+        } else {
+          toast.error(`Kunne ikke ${target ? 'arkivere' : 'gjenopprette'}: ${msg}`)
+        }
         return
       }
       setEnsemble({ ...ensemble, archived: data.archived })
