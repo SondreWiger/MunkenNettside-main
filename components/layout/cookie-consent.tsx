@@ -44,15 +44,15 @@ export function CookieConsentBanner() {
 
   const applyCookieSettings = (settings: CookieConsent) => {
     // Apply analytics consent
-    if (settings.analytics && typeof window !== 'undefined' && window.gtag) {
-      window.gtag('consent', 'update', {
+    if (settings.analytics && typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('consent', 'update', {
         analytics_storage: 'granted'
       })
     }
     
     // Apply marketing consent (if you have marketing cookies)
-    if (settings.marketing && typeof window !== 'undefined' && window.gtag) {
-      window.gtag('consent', 'update', {
+    if (settings.marketing && typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('consent', 'update', {
         ad_storage: 'granted'
       })
     }

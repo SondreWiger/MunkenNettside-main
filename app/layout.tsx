@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/sonner"
 import { ConstructionWarning } from "@/components/construction-warning"
 import { CookieConsentBanner } from "@/components/layout/cookie-consent"
+import { ErrorBoundary } from "@/components/error-boundary"
 import "./globals.css"
 import { getThemeTokensServer } from '@/lib/theme/getThemeTokensServer'
 import ClientTheme from '@/components/theme/client-theme'
@@ -45,7 +46,9 @@ export default async function RootLayout({
       {/* Ensure client loads tokens and applies them too (covers cached pages or client-side navigations) */}
       <ClientTheme />
         <ConstructionWarning />
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
         <CookieConsentBanner />
         <Toaster />
         <Analytics />

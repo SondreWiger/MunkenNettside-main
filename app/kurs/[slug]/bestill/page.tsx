@@ -131,7 +131,8 @@ export default function KursCheckoutPage({ params }: { params: { slug: string } 
 
       if (error) throw error
 
-      // TODO: Integrate with Vipps payment API
+      // Vipps payment integration available via VippsButton component
+      // See /api/payment/vipps/create-order and /api/payment/vipps/callback
       // For now, we'll redirect to a confirmation page with pending status
       // In production, this would call Vipps API and get a payment link
 

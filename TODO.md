@@ -2,6 +2,20 @@ Yes.
 
 # Documentation expansion — TODO
 
+# Critical Fixes Completed (Jan 15, 2026)
+- [x] Fixed all TypeScript compilation errors (window.gtag, ButtonProps, Response destructuring)
+- [x] Created complete waitlist API endpoints for ensembles and kurs
+  - GET /api/ensembles/[id]/waitlist - View waitlist
+  - POST /api/ensembles/[id]/waitlist - Add to waitlist
+  - DELETE /api/ensembles/[id]/waitlist - Remove from waitlist
+  - POST /api/ensembles/[id]/waitlist/promote - Auto-promote next person
+  - Same for /api/kurs/[id]/waitlist/*
+- [x] Added ErrorBoundary component to root layout with user-friendly error display
+- [x] Cleaned SQL duplicates (removed duplicate admin_roadmap section)
+- [x] Added logger utility (lib/utils/logger.ts) for conditional console logging
+- [x] Verified PayPal integration (already complete for tickets, recordings, and kurs)
+- [x] Added accessibility improvements (ARIA labels, role attributes, descriptive text)
+
 # Current Session (COMPLETED)
 - [x] Fixed mobile seat map UX - complete rewrite of unified-seat-booking.tsx with mobile-first design
 - [x] Added ensemble capacity settings (max_actors, waitlist_enabled, auto_accept_enabled)

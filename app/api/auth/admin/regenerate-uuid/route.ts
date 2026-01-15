@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send verification email with new UUID
-    const { error: emailError } = await fetch('/api/auth/admin/send-uuid-email', {
+    const emailResponse = await fetch('/api/auth/admin/send-uuid-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
         email: user.email
       })
     })
+
+    if (!emailResponse.ok) {
+      console.error('Failed to send verification email')
+    }
 
     return NextResponse.json({ 
       success: true,

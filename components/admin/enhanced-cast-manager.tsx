@@ -747,15 +747,15 @@ export function EnhancedCastManager({ ensembleId, roles, onChange }: EnhancedCas
 
   return (
     <div className="relative">
-      <Card>
+      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
                 <Theater className="h-5 w-5" />
                 Roller og skuespillere
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-500 dark:text-slate-400">
                 Administrer karakterer i forestillingen og tildel skuespillere til gul og blå lag.
                 {roles.length > 0 && ` ${roles.length} roller, ${getTotalActors()} unike skuespillere.`}
               </CardDescription>
@@ -787,7 +787,7 @@ export function EnhancedCastManager({ ensembleId, roles, onChange }: EnhancedCas
                     </div>
                   ) : (
                     enrollments.map((enrollment) => (
-                      <Card key={enrollment.id}>
+                      <Card key={enrollment.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                         <CardContent className="pt-6">
                           <div className="flex items-start gap-4">
                             <Avatar className="w-12 h-12">
@@ -797,18 +797,18 @@ export function EnhancedCastManager({ ensembleId, roles, onChange }: EnhancedCas
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold">{enrollment.users.full_name}</h4>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                              <h4 className="font-semibold text-slate-900 dark:text-white">{enrollment.users.full_name}</h4>
+                              <div className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 mt-1">
                                 <Mail className="h-3 w-3" />
                                 <span className="truncate">{enrollment.users.email}</span>
                               </div>
                               {enrollment.users.phone && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                                <div className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 mt-1">
                                   <Phone className="h-3 w-3" />
                                   <span>{enrollment.users.phone}</span>
                                 </div>
                               )}
-                              <p className="text-xs text-muted-foreground mt-2">
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                                 Meldt på: {new Date(enrollment.enrolled_at).toLocaleDateString('no-NO')}
                               </p>
                             </div>
@@ -844,9 +844,9 @@ export function EnhancedCastManager({ ensembleId, roles, onChange }: EnhancedCas
         <CardContent className="space-y-6">
         {/* Add new role */}
         {isAddingRole ? (
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader>
-              <CardTitle className="text-lg">Ny rolle</CardTitle>
+              <CardTitle className="text-lg text-slate-900 dark:text-white">Ny rolle</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -917,12 +917,12 @@ export function EnhancedCastManager({ ensembleId, roles, onChange }: EnhancedCas
             
             return (
               <div key={roleIndex} className="space-y-3">
-                <Card>
+                <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <ImportanceIcon className="h-5 w-5" />
-                        <CardTitle className="text-lg">{role.character_name}</CardTitle>
+                        <CardTitle className="text-lg text-slate-900 dark:text-white">{role.character_name}</CardTitle>
                         <Badge className={cn("text-xs", getImportanceColor(role.importance))}>
                           {role.importance === 'lead' ? 'Hovedrolle' : 
                            role.importance === 'supporting' ? 'Biroll' : 'Ensemble'}
@@ -946,7 +946,7 @@ export function EnhancedCastManager({ ensembleId, roles, onChange }: EnhancedCas
                       </div>
                     </div>
                     {!isEditingRoleDetails && role.description && (
-                      <CardDescription>{role.description}</CardDescription>
+                      <CardDescription className="text-slate-500 dark:text-slate-400">{role.description}</CardDescription>
                     )}
                   </CardHeader>
                   

@@ -272,75 +272,75 @@ export default function EditEnsemblePage() {
 
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="p-6 space-y-6">
       {/* Header */}
-      <div className="border-b bg-card sticky top-0 z-50">
-        <div className="container px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link href="/admin/ensembler">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{ensemble.title}</h1>
-              <p className="text-sm text-muted-foreground">{ensemble.slug}</p>
-            </div>
-          </div>
-          <Button onClick={handleSave} disabled={saving} size="lg">
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? "Lagrer..." : "Lagre endringer"}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/admin/ensembler">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Tilbake
+            </Link>
           </Button>
-          <div className="ml-4">
-            <Button onClick={toggleArchive} size="sm" variant={ensemble.archived ? 'secondary' : 'destructive'}>
-              {ensemble.archived ? 'Gjenopprett fra arkiv' : 'Arkiver ensemble'}
-            </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{ensemble.title}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{ensemble.slug}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={toggleArchive} size="sm" variant={ensemble.archived ? 'secondary' : 'destructive'}>
+            {ensemble.archived ? 'Gjenopprett' : 'Arkiver'}
+          </Button>
+          <Button onClick={handleSave} disabled={saving} size="sm" className="bg-blue-600 hover:bg-blue-700">
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? "Lagrer..." : "Lagre"}
+          </Button>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="border-b bg-muted/30">
-        <div className="container px-4 py-4 flex gap-2 flex-wrap">
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/ensemble/${ensemble.slug}`} target="_blank">
-              Se på nettstedet ↗
-            </Link>
-          </Button>
-          <div className="flex gap-2 ml-auto">
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <Switch
-                checked={ensemble.is_published}
-                onCheckedChange={(checked) => setEnsemble({ ...ensemble, is_published: checked })}
-              />
-              Publisert
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <Switch
-                checked={ensemble.featured}
-                onCheckedChange={(checked) => setEnsemble({ ...ensemble, featured: checked })}
-              />
-              Fremhevet
-            </label>
+      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/ensemble/${ensemble.slug}`} target="_blank">
+                Se på nettstedet ↗
+              </Link>
+            </Button>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <Switch
+                  checked={ensemble.is_published}
+                  onCheckedChange={(checked) => setEnsemble({ ...ensemble, is_published: checked })}
+                />
+                Publisert
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <Switch
+                  checked={ensemble.featured}
+                  onCheckedChange={(checked) => setEnsemble({ ...ensemble, featured: checked })}
+                />
+                Fremhevet
+              </label>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="container px-4 py-8">
-        <Tabs defaultValue="info" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="info">Info</TabsTrigger>
-          <TabsTrigger value="cast">Rollebesetning</TabsTrigger>
-          <TabsTrigger value="members">Medlemmer</TabsTrigger>
-          <TabsTrigger value="recordings">Opptak ({recordings.length})</TabsTrigger>
-          <TabsTrigger value="media">Media</TabsTrigger>
-          <TabsTrigger value="sessions">Øvinger</TabsTrigger>
+      <Tabs defaultValue="info" className="space-y-6">
+        <TabsList className="bg-slate-100 dark:bg-slate-800 grid w-full grid-cols-6">
+          <TabsTrigger value="info" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">Info</TabsTrigger>
+          <TabsTrigger value="cast" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">Rollebesetning</TabsTrigger>
+          <TabsTrigger value="members" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">Medlemmer</TabsTrigger>
+          <TabsTrigger value="recordings" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">Opptak ({recordings.length})</TabsTrigger>
+          <TabsTrigger value="media" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">Media</TabsTrigger>
+          <TabsTrigger value="sessions" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">Øvinger</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-6">
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader>
-              <CardTitle>Grunnleggende informasjon</CardTitle>
+              <CardTitle className="text-slate-900 dark:text-white">Grunnleggende informasjon</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -495,10 +495,9 @@ export default function EditEnsemblePage() {
                 </div>
               </div>
 
-              {/* Capacity & Waitlist Section */}
-              <div className="space-y-4 p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+              <div className="space-y-4 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                  <span className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg" aria-hidden="true">
                     <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
@@ -507,8 +506,9 @@ export default function EditEnsemblePage() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Maks antall skuespillere</Label>
+                    <Label htmlFor="max_actors">Maks antall skuespillere</Label>
                     <Input
+                      id="max_actors"
                       type="number"
                       value={ensemble.max_actors || ""}
                       onChange={(e) =>
@@ -518,14 +518,15 @@ export default function EditEnsemblePage() {
                         })
                       }
                       placeholder="Ubegrenset"
+                      aria-describedby="max_actors_help"
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p id="max_actors_help" className="text-xs text-muted-foreground">
                       La feltet stå tomt for ubegrenset kapasitet
                     </p>
                   </div>
                   <div className="space-y-2">
                     <Label>Venteliste</Label>
-                    <div className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-slate-900">
+                    <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900">
                       <div>
                         <p className="font-medium text-sm">Aktiver venteliste</p>
                         <p className="text-xs text-muted-foreground">Når ensemblet er fullt</p>
@@ -537,10 +538,10 @@ export default function EditEnsemblePage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-slate-900">
+                <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900">
                   <div>
-                    <p className="font-medium text-sm">Automatisk godkjenning</p>
-                    <p className="text-xs text-muted-foreground">Nye medlemmer godkjennes automatisk når det er plass</p>
+                    <p className="font-medium text-sm text-slate-900 dark:text-white">Automatisk godkjenning</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Nye medlemmer godkjennes automatisk når det er plass</p>
                   </div>
                   <Switch
                     checked={ensemble.auto_accept_enabled ?? true}
@@ -613,10 +614,10 @@ export default function EditEnsemblePage() {
         </TabsContent>
 
         <TabsContent value="sessions" className="space-y-4">
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader>
-              <CardTitle>Øvinger / Møtedager</CardTitle>
-              <CardDescription>Administrer øvinger og interne møter for dette ensemblet</CardDescription>
+              <CardTitle className="text-slate-900 dark:text-white">Øvinger / Møtedager</CardTitle>
+              <CardDescription className="text-slate-500 dark:text-slate-400">Administrer øvinger og interne møter for dette ensemblet</CardDescription>
             </CardHeader>
             <CardContent>
               <SessionManager ensembleId={ensembleId} />
@@ -648,10 +649,10 @@ export default function EditEnsemblePage() {
         </TabsContent>
 
         <TabsContent value="recordings" className="space-y-6">
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader>
-              <CardTitle>Legg til nytt opptak</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-slate-900 dark:text-white">Legg til nytt opptak</CardTitle>
+              <CardDescription className="text-slate-500 dark:text-slate-400">
                 Last opp video til Jottacloud og lim inn delingslenken her. Lenken vil bli skjult for brukere.
               </CardDescription>
             </CardHeader>
@@ -735,13 +736,13 @@ export default function EditEnsemblePage() {
           </Card>
 
           {recordings.length > 0 && (
-            <Card>
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
               <CardHeader>
-                <CardTitle>Eksisterende opptak</CardTitle>
+                <CardTitle className="text-slate-900 dark:text-white">Eksisterende opptak</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {recordings.map((recording) => (
-                  <div key={recording.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                  <div key={recording.id} className="flex items-center gap-4 p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
                     <Film className="h-8 w-8 text-muted-foreground" />
                     <div className="flex-1">
                       <p className="font-medium">
@@ -763,9 +764,9 @@ export default function EditEnsemblePage() {
         </TabsContent>
 
         <TabsContent value="media" className="space-y-6">
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader>
-              <CardTitle>Bilder og video</CardTitle>
+              <CardTitle className="text-slate-900 dark:text-white">Bilder og video</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -807,10 +808,10 @@ export default function EditEnsemblePage() {
           </Card>
 
           {/* Gallery Images */}
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader>
-              <CardTitle>Galleribilde</CardTitle>
-              <CardDescription>Legg til bilder fra forestillingen som vises i en galeri når den er i produksjon</CardDescription>
+              <CardTitle className="text-slate-900 dark:text-white">Galleribilde</CardTitle>
+              <CardDescription className="text-slate-500 dark:text-slate-400">Legg til bilder fra forestillingen som vises i en galeri når den er i produksjon</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -869,7 +870,6 @@ export default function EditEnsemblePage() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
     </main>
   )
 }

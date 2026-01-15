@@ -615,12 +615,12 @@ export function UserManagement() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="users" className="flex items-center gap-2">
+        <TabsList className="bg-slate-100 dark:bg-slate-800 grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="users" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">
             <Users className="h-4 w-4" />
             Brukere ({filteredUsers.length})
           </TabsTrigger>
-          <TabsTrigger value="actors" className="flex items-center gap-2">
+          <TabsTrigger value="actors" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">
             <Theater className="h-4 w-4" />
             Skuespillere ({filteredActors.length})
           </TabsTrigger>
@@ -628,16 +628,16 @@ export function UserManagement() {
 
         {/* Users Tab */}
         <TabsContent value="users" className="mt-6">
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader className="pb-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                  <CardTitle>Brukere</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-slate-900 dark:text-white">Brukere</CardTitle>
+                  <CardDescription className="text-slate-600 dark:text-slate-400">
                     Viser {paginatedUsers.length} av {filteredUsers.length} brukere
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={loadData}>
+                <Button variant="outline" size="sm" onClick={loadData} className="border-slate-200 dark:border-slate-700">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Oppdater
                 </Button>
@@ -646,19 +646,21 @@ export function UserManagement() {
               {/* Search and Filters */}
               <div className="flex flex-col md:flex-row gap-3 pt-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden="true" />
                   <Input
                     placeholder="Søk på navn, e-post eller skuespiller..."
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                    aria-label="Søk etter brukere"
+                    role="searchbox"
                   />
                 </div>
                 <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as RoleFilter)}>
-                  <SelectTrigger className="w-full md:w-40">
+                  <SelectTrigger className="w-full md:w-40 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     <SelectValue placeholder="Rolle" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                     <SelectItem value="all">Alle roller</SelectItem>
                     <SelectItem value="customer">Kunder</SelectItem>
                     <SelectItem value="staff">Ansatte</SelectItem>
@@ -667,10 +669,10 @@ export function UserManagement() {
                   </SelectContent>
                 </Select>
                 <Select value={connectionFilter} onValueChange={(v) => setConnectionFilter(v as ConnectionFilter)}>
-                  <SelectTrigger className="w-full md:w-40">
+                  <SelectTrigger className="w-full md:w-40 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     <SelectValue placeholder="Kobling" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                     <SelectItem value="all">Alle</SelectItem>
                     <SelectItem value="connected">Koblede</SelectItem>
                     <SelectItem value="not-connected">Ikke koblet</SelectItem>
@@ -686,9 +688,9 @@ export function UserManagement() {
 
             <CardContent className="p-0">
               {/* User List */}
-              <div className="divide-y">
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
                 {paginatedUsers.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
+                  <div className="p-8 text-center text-slate-500 dark:text-slate-400">
                     {hasActiveFilters ? 'Ingen brukere matcher filtrene' : 'Ingen brukere funnet'}
                   </div>
                 ) : (
@@ -772,8 +774,8 @@ export function UserManagement() {
 
               {/* Pagination */}
               {totalUserPages > 1 && (
-                <div className="flex items-center justify-between p-4 border-t bg-muted/30">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     Side {userPage} av {totalUserPages}
                   </p>
                   <div className="flex gap-2">
@@ -782,6 +784,7 @@ export function UserManagement() {
                       size="sm"
                       onClick={() => setUserPage(p => Math.max(1, p - 1))}
                       disabled={userPage === 1}
+                      className="border-slate-200 dark:border-slate-700"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -790,6 +793,7 @@ export function UserManagement() {
                       size="sm"
                       onClick={() => setUserPage(p => Math.min(totalUserPages, p + 1))}
                       disabled={userPage === totalUserPages}
+                      className="border-slate-200 dark:border-slate-700"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -802,21 +806,21 @@ export function UserManagement() {
 
         {/* Actors Tab */}
         <TabsContent value="actors" className="mt-6">
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader className="pb-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                  <CardTitle>Skuespillere</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-slate-900 dark:text-white">Skuespillere</CardTitle>
+                  <CardDescription className="text-slate-600 dark:text-slate-400">
                     Viser {paginatedActors.length} av {filteredActors.length} skuespillere
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={openNewActorDialog} size="sm">
+                  <Button onClick={openNewActorDialog} size="sm" className="bg-blue-600 hover:bg-blue-700">
                     <UserPlus className="h-4 w-4 mr-2" />
                     Ny
                   </Button>
-                  <Button onClick={() => setShowBulkActorDialog(true)} variant="outline" size="sm">
+                  <Button onClick={() => setShowBulkActorDialog(true)} variant="outline" size="sm" className="border-slate-200 dark:border-slate-700">
                     <UserPlus className="h-4 w-4 mr-2" />
                     Opprett flere
                   </Button>
@@ -826,19 +830,19 @@ export function UserManagement() {
               {/* Search and Filters */}
               <div className="flex flex-col md:flex-row gap-3 pt-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Søk på navn eller e-post..."
                     value={actorSearch}
                     onChange={(e) => setActorSearch(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                   />
                 </div>
                 <Select value={actorConnectionFilter} onValueChange={(v) => setActorConnectionFilter(v as ConnectionFilter)}>
-                  <SelectTrigger className="w-full md:w-40">
+                  <SelectTrigger className="w-full md:w-40 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     <SelectValue placeholder="Kobling" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                     <SelectItem value="all">Alle</SelectItem>
                     <SelectItem value="connected">Koblede</SelectItem>
                     <SelectItem value="not-connected">Ikke koblet</SelectItem>
@@ -854,9 +858,9 @@ export function UserManagement() {
 
             <CardContent className="p-0">
               {/* Actor List */}
-              <div className="divide-y">
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
                 {paginatedActors.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
+                  <div className="p-8 text-center text-slate-500 dark:text-slate-400">
                     {hasActiveActorFilters ? 'Ingen skuespillere matcher filtrene' : 'Ingen skuespillere funnet'}
                   </div>
                 ) : (
@@ -911,8 +915,8 @@ export function UserManagement() {
 
               {/* Pagination */}
               {totalActorPages > 1 && (
-                <div className="flex items-center justify-between p-4 border-t bg-muted/30">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     Side {actorPage} av {totalActorPages}
                   </p>
                   <div className="flex gap-2">
@@ -921,6 +925,7 @@ export function UserManagement() {
                       size="sm"
                       onClick={() => setActorPage(p => Math.max(1, p - 1))}
                       disabled={actorPage === 1}
+                      className="border-slate-200 dark:border-slate-700"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -929,6 +934,7 @@ export function UserManagement() {
                       size="sm"
                       onClick={() => setActorPage(p => Math.min(totalActorPages, p + 1))}
                       disabled={actorPage === totalActorPages}
+                      className="border-slate-200 dark:border-slate-700"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>

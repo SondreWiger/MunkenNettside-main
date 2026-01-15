@@ -132,8 +132,18 @@ export async function POST(request: NextRequest) {
 
     console.log("[kurs-enroll] Updated participant count")
 
-    // TODO: Send confirmation email
-    console.log("[kurs-enroll] TODO: Send confirmation email to", customerEmail)
+    // Send confirmation email
+    const { sendKursEnrollmentEmail } = await import('@/lib/email/send-kurs-enrollment-email')
+    await sendKursEnrollmentEmail({
+      recipientEmail: customerEmail,
+      recipientName: customerName,
+      kursTitle: kurs.title,
+      kursId: kursId,
+      enrollmentReference: enrollmentReference,
+      amountPaid: totalAmount,
+      confirmedAt: enrollment.confirmed_at
+    })
+    console.log("[kurs-enroll] Confirmation email sent to", customerEmail)
 
     console.log("[kurs-enroll] ========== KURS ENROLLMENT SUCCESS ==========")
     return NextResponse.json(

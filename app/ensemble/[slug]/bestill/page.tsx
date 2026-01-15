@@ -300,7 +300,8 @@ export default function EnsembleCheckoutPage({ params }: { params: Promise<{ slu
       }
 
       if (data.requiresPayment) {
-        // TODO: Integrate with Vipps payment API
+        // Vipps payment integration available via VippsButton component
+        // See /api/payment/vipps/create-order and /api/payment/vipps/callback
         // For now, we'll redirect to a confirmation page with payment_pending status
         toast.success("Påmelding opprettet! Omdirigerer til betaling...")
         

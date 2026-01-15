@@ -308,20 +308,20 @@ export function EnsembleControls({
   return (
     <div className="space-y-6">
       <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="pending">
+        <TabsList className="bg-slate-100 dark:bg-slate-800 grid w-full grid-cols-3">
+          <TabsTrigger value="pending" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">
             Påmeldinger ({pendingEnrollments.length})
           </TabsTrigger>
-          <TabsTrigger value="yellow">{yellowTeamName}</TabsTrigger>
-          <TabsTrigger value="blue">{blueTeamName}</TabsTrigger>
+          <TabsTrigger value="yellow" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">{yellowTeamName}</TabsTrigger>
+          <TabsTrigger value="blue" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900">{blueTeamName}</TabsTrigger>
         </TabsList>
 
         {/* Pending Enrollments */}
         <TabsContent value="pending" className="space-y-4 mt-4">
           {pendingEnrollments.length === 0 ? (
-            <Card>
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
               <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">
+                <p className="text-center text-slate-500 dark:text-slate-400">
                   Ingen ventende påmeldinger
                 </p>
               </CardContent>
@@ -329,7 +329,7 @@ export function EnsembleControls({
           ) : (
             <div className="space-y-4">
               {/* Bulk Actions */}
-              <div className="flex gap-2 p-4 bg-muted/50 rounded-lg">
+              <div className="flex gap-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                 <Button
                   onClick={handleBulkApprove}
                   disabled={pendingEnrollments.length === 0}
@@ -338,20 +338,20 @@ export function EnsembleControls({
                   <UserPlus className="h-4 w-4 mr-2" />
                   Godkjenn alle ({pendingEnrollments.length})
                 </Button>
-                <div className="text-sm text-muted-foreground flex items-center ml-2">
+                <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center ml-2">
                   Bruker standardinnstillinger for alle
                 </div>
               </div>
 
               {pendingEnrollments.map((enrollment) => (
-                <Card key={enrollment.id}>
+                <Card key={enrollment.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardTitle className="text-lg">
+                        <CardTitle className="text-lg text-slate-900 dark:text-white">
                           {enrollment.users.full_name}
                         </CardTitle>
-                        <CardDescription>{enrollment.users.email}</CardDescription>
+                        <CardDescription className="text-slate-500 dark:text-slate-400">{enrollment.users.email}</CardDescription>
                         <Link
                           href={`/profile/${enrollment.users.slug}`}
                           target="_blank"
@@ -464,9 +464,9 @@ export function EnsembleControls({
             </div>
           </div>
           {yellowMembers.length === 0 ? (
-            <Card>
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
               <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">
+                <p className="text-center text-slate-500 dark:text-slate-400">
                   Ingen medlemmer i {yellowTeamName} ennå
                 </p>
               </CardContent>
@@ -474,12 +474,12 @@ export function EnsembleControls({
           ) : (
             <div className="space-y-3">
               {yellowMembers.map((member) => (
-                <Card key={member.id}>
+                <Card key={member.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <p className="font-semibold">{member.users.full_name}</p>
+                          <p className="font-semibold text-slate-900 dark:text-white">{member.users.full_name}</p>
                           <Link
                             href={`/profile/${member.users.slug}`}
                             target="_blank"
@@ -541,9 +541,9 @@ export function EnsembleControls({
             </div>
           </div>
           {blueMembers.length === 0 ? (
-            <Card>
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
               <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">
+                <p className="text-center text-slate-500 dark:text-slate-400">
                   Ingen medlemmer i {blueTeamName} ennå
                 </p>
               </CardContent>
@@ -551,12 +551,12 @@ export function EnsembleControls({
           ) : (
             <div className="space-y-3">
               {blueMembers.map((member) => (
-                <Card key={member.id}>
+                <Card key={member.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <p className="font-semibold">{member.users.full_name}</p>
+                          <p className="font-semibold text-slate-900 dark:text-white">{member.users.full_name}</p>
                           <Link
                             href={`/profile/${member.users.slug}`}
                             target="_blank"

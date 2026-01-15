@@ -5,11 +5,9 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Loader2, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-// QR scanner removed — email-only verification
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -25,28 +23,14 @@ export function LoginForm() {
   const [isCodeSent, setIsCodeSent] = useState(false)
   const [adminUuidInput, setAdminUuidInput] = useState('')
   const [adminCodeInput, setAdminCodeInput] = useState('')
-  const [showScanner, setShowScanner] = useState(false)
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/dashboard"
   const supabase = getSupabaseBrowserClient()
   const adminVerificationRequired = searchParams.get('admin_verification_required') === '1'
 
-  // Prefill admin UUID from previous registration if present
+  // Check if already authenticated and requires admin verification on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const pending = localStorage.getItem('pendingAdminUuid')
-        if (pending) setAdminUuidInput(pending)
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, [])
-
-  // If we landed on the login page while already authenticated and admin verification is required,
-  // immediately check status and show the verification UI so the user is blocked until they complete it.
-  useEffect(() => {
-    const check = async () => {
+    const checkAdminStatus = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user && adminVerificationRequired) {
@@ -58,10 +42,10 @@ export function LoginForm() {
           }
         }
       } catch (err) {
-        // ignore
+        console.error('Error checking admin status:', err)
       }
     }
-    check()
+    checkAdminStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminVerificationRequired])
 
@@ -85,12 +69,13 @@ export function LoginForm() {
         return
       }
 
-      // Check if admin verification is required for this user
+      // Enhanced admin security: Check if admin verification is required
       try {
         const statusRes = await fetch('/api/auth/admin/status')
         const statusData = await statusRes.json()
+        
         if (statusData?.requiresVerification) {
-          // For admin users, regenerate UUID on every login for security
+          // Generate new UUID on every login for enhanced security
           const regenerateRes = await fetch('/api/auth/admin/regenerate-uuid', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
@@ -98,10 +83,10 @@ export function LoginForm() {
           
           if (regenerateRes.ok) {
             const regenData = await regenerateRes.json()
-            // If the server exposes an adminUuid (dev only), prefill it to help debugging
             if (regenData?.adminUuid) setAdminUuidInput(regenData.adminUuid)
           }
           
+          // Show admin verification UI - must verify before accessing admin features
           setIsAdminVerification(true)
           return
         }
@@ -201,10 +186,14 @@ export function LoginForm() {
             </div>
           </form>
 
-          {/* Admin verification UI - shown after successful password login if admin verification required */}
+          {/* Enhanced Admin Security Verification */}
           {isAdminVerification && (
-            <div className="mt-6 p-4 border rounded-lg bg-muted">
-              <h3 className="text-lg font-semibold mb-2">Admin-verifisering</h3>
+            <div className="mt-6 p-4 border-2 border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-5 w-5 text-amber-600" />
+                <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">Admin-sikkerhet påkrevd</h3>
+              </div>
+              
               {!isCodeSent ? (
                 <form
                   onSubmit={async (e) => {
@@ -212,34 +201,32 @@ export function LoginForm() {
                     setIsLoading(true)
                     setError(null)
 
-                    // Require admin UUID for admin verification flow
-                    if (!adminUuidInput || typeof adminUuidInput !== 'string' || !/^[0-9a-fA-F-]{36,36}$/.test(adminUuidInput)) {
-                      setError('Admin UUID er påkrevd og må være en gyldig UUID.')
+                    // Strict UUID validation
+                    if (!adminUuidInput || typeof adminUuidInput !== 'string' || !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(adminUuidInput)) {
+                      setError('Admin UUID er påkrevd og må være en gyldig UUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)')
                       setIsLoading(false)
                       return
                     }
 
                     try {
-                      // Save pending uuid locally to help future logins
-                      try { localStorage.setItem('pendingAdminUuid', adminUuidInput) } catch (e) {}
-
                       const res = await fetch('/api/auth/admin/request-code', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ adminUuid: adminUuidInput })
                       })
                       const data = await res.json()
+                      
                       if (!res.ok) {
                         if (res.status === 429) {
-                          setError('For mange forespørsler. Prøv igjen senere.')
+                          setError('For mange forespørsler. Prøv igjen om 5 minutter.')
                           return
                         }
                         if (data.error === 'No admin UUID set for this account') {
-                          setError('Denne kontoen har ingen Admin UUID. Kontakt en administrator.')
+                          setError('Denne kontoen mangler Admin UUID. Kontakt en superadministrator.')
                         } else if (data.error === 'Invalid admin UUID') {
-                          setError('Ugyldig Admin UUID. Sjekk at du skrev den riktig eller be om UUID fra en administrator.')
+                          setError('Ugyldig Admin UUID. Sjekk e-posten din for riktig UUID.')
                         } else {
-                          setError(data.error || 'Kunne ikke sende kode')
+                          setError(data.error || 'Kunne ikke sende verifiseringskode')
                         }
                       } else {
                         setIsCodeSent(true)
@@ -247,31 +234,67 @@ export function LoginForm() {
                       }
                     } catch (err) {
                       console.error('Request-code error:', err)
-                      setError('Noe gikk galt ved sending av kode')
+                      setError('Nettverksfeil. Sjekk tilkoblingen og prøv igjen.')
                     } finally {
                       setIsLoading(false)
                     }
                   }}
                 >
-                  <div className="space-y-2">
-                    <Label htmlFor="adminUuid">Admin UUID</Label>
-                    <Input id="adminUuid" value={adminUuidInput} onChange={(e) => setAdminUuidInput(e.target.value)} className="h-12" required />
-                  </div>
-                    <div className="mt-3">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Som administrator regenereres din UUID ved hver pålogging av sikkerhetshensyn. 
-                        Du har mottatt en ny UUID på e-post. Skriv inn Admin UUID og trykk «Send kode».
-                      </p>
-                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mt-2">
-                        <p className="text-xs text-yellow-800">
-                          <strong>⚠️ Sikkerhet:</strong> Admin UUID utløper etter 24 timer. 
-                          Kontakt superadmin hvis du ikke har tilgang til e-posten din eller UUID-en har utløpt.
-                        </p>
-                      </div>
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="adminUuid" className="text-amber-900 dark:text-amber-100">Admin UUID (fra e-post)</Label>
+                      <Input 
+                        id="adminUuid" 
+                        value={adminUuidInput} 
+                        onChange={(e) => setAdminUuidInput(e.target.value.trim())} 
+                        className="h-12 font-mono text-sm bg-white dark:bg-slate-900" 
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        required 
+                        autoComplete="off"
+                      />
                     </div>
+                    
+                    <div className="p-4 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-lg space-y-2">
+                      <p className="text-sm text-amber-900 dark:text-amber-100 font-medium">
+                        🔒 Hvorfor dette?
+                      </p>
+                      <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1 list-disc list-inside">
+                        <li>Din Admin UUID regenereres ved hver pålogging</li>
+                        <li>UUID sendes til din registrerte e-postadresse</li>
+                        <li>UUID utløper etter 24 timer av sikkerhetshensyn</li>
+                        <li>Dette sikrer at kun du har tilgang til admin-funksjoner</li>
+                      </ul>
+                    </div>
+
+                    {error && (
+                      <Alert variant="destructive" className="mt-2">
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                  
                   <div className="flex gap-2 mt-4">
-                    <Button type="submit" disabled={isLoading}>Send kode</Button>
-                    <Button variant="ghost" onClick={async () => { await supabase.auth.signOut(); window.location.href = '/'; }}>Avbryt</Button>
+                    <Button type="submit" disabled={isLoading} className="bg-amber-600 hover:bg-amber-700">
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sender...
+                        </>
+                      ) : (
+                        'Send verifiseringskode'
+                      )}
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      onClick={async () => { 
+                        await supabase.auth.signOut()
+                        window.location.href = '/'
+                      }}
+                      disabled={isLoading}
+                    >
+                      Avbryt
+                    </Button>
                   </div>
                 </form>
               ) : (
@@ -279,6 +302,15 @@ export function LoginForm() {
                   onSubmit={async (e) => {
                     e.preventDefault()
                     setIsLoading(true)
+                    setError(null)
+
+                    // Validate code format (6-digit numeric)
+                    if (!adminCodeInput || !/^[0-9]{6}$/i.test(adminCodeInput)) {
+                      setError('Verifiseringskoden må være 6 siffer')
+                      setIsLoading(false)
+                      return
+                    }
+
                     try {
                       const res = await fetch('/api/auth/admin/verify-code', {
                         method: 'POST',
@@ -286,28 +318,74 @@ export function LoginForm() {
                         body: JSON.stringify({ code: adminCodeInput })
                       })
                       const data = await res.json()
+                      
                       if (!res.ok) {
-                        setError(data.error || 'Ugyldig kode')
+                        if (res.status === 429) {
+                          setError('For mange forsøk. Vent 5 minutter.')
+                        } else {
+                          setError(data.error || 'Ugyldig kode. Sjekk e-posten din.')
+                        }
                       } else {
-                        // Verification successful - redirect to target
-                        try { localStorage.removeItem('pendingAdminUuid') } catch (e) {}
+                        // Verification successful - redirect to admin area
                         window.location.href = redirectTo
                       }
                     } catch (err) {
                       console.error('Verify-code error:', err)
-                      setError('Noe gikk galt ved verifisering')
+                      setError('Nettverksfeil. Sjekk tilkoblingen og prøv igjen.')
                     } finally {
                       setIsLoading(false)
                     }
                   }}
                 >
-                  <div className="space-y-2">
-                    <Label htmlFor="adminCode">Skriv inn koden du fikk på e-post</Label>
-                    <Input id="adminCode" value={adminCodeInput} onChange={(e) => setAdminCodeInput(e.target.value)} required className="h-12" />
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="adminCode" className="text-amber-900 dark:text-amber-100">Verifiseringskode (6 siffer fra e-post)</Label>
+                      <Input 
+                        id="adminCode" 
+                        value={adminCodeInput} 
+                        onChange={(e) => setAdminCodeInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} 
+                        required 
+                        className="h-12 font-mono text-2xl tracking-widest text-center bg-white dark:bg-slate-900" 
+                        placeholder="123456"
+                        maxLength={6}
+                        autoComplete="off"
+                        inputMode="numeric"
+                      />
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        Koden ble sendt til din e-postadresse og utløper om 10 minutter
+                      </p>
+                    </div>
+
+                    {error && (
+                      <Alert variant="destructive" className="mt-2">
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    )}
                   </div>
+                  
                   <div className="flex gap-2 mt-4">
-                    <Button type="submit" disabled={isLoading}>Verifiser</Button>
-                    <Button variant="ghost" onClick={async () => { await supabase.auth.signOut(); window.location.href = '/'; }}>Avbryt</Button>
+                    <Button type="submit" disabled={isLoading} className="bg-amber-600 hover:bg-amber-700">
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verifiserer...
+                        </>
+                      ) : (
+                        'Verifiser og logg inn'
+                      )}
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      onClick={() => {
+                        setIsCodeSent(false)
+                        setAdminCodeInput('')
+                        setError(null)
+                      }}
+                      disabled={isLoading}
+                    >
+                      Tilbake
+                    </Button>
                   </div>
                 </form>
               )}
@@ -318,3 +396,4 @@ export function LoginForm() {
     </div>
   )
 }
+

@@ -20,7 +20,7 @@ async function fetchStats() {
 
   const { data: purchases } = await supabase
     .from('purchases')
-    .select('id, amount, created_at')
+    .select('id, amount_paid_nok, created_at')
     .eq('status', 'completed')
     .gte('created_at', since)
 
@@ -30,7 +30,7 @@ async function fetchStats() {
     .gte('created_at', since)
 
   const bookingRevenue = (bookings || []).reduce((s: number, b: any) => s + (Number(b.total_amount_nok) || 0), 0)
-  const purchasesRevenue = (purchases || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+  const purchasesRevenue = (purchases || []).reduce((s: number, p: any) => s + (Number(p.amount_paid_nok) || 0), 0)
   const kursRevenue = (kursEnrollments || []).reduce((s: number, k: any) => s + (Number(k.amount_paid_nok) || 0), 0)
 
   const monthly = {
@@ -102,7 +102,7 @@ async function fetchStats() {
   ;(purchases || []).forEach((p: any) => {
     const d = (p.created_at || '').slice(0, 10)
     if (!d) return
-    purchasesDayMap[d] = (purchasesDayMap[d] || 0) + Number(p.amount || 0)
+    purchasesDayMap[d] = (purchasesDayMap[d] || 0) + Number(p.amount_paid_nok || 0)
   })
 
   const revenueTimeseries = days.map(day => ({

@@ -15,6 +15,7 @@ import {
   TrendingUp,
   GraduationCap,
   Menu,
+  CreditCard,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
@@ -61,6 +62,7 @@ const navGroups = [
     label: "Salg",
     items: [
       { name: "Bestillinger", href: "/admin/bestillinger", icon: Ticket },
+      { name: "Kjøp & Transaksjoner", href: "/admin/kjop", icon: CreditCard },
       { name: "Billettskanner", href: "/admin/scan", icon: QrCode },
       { name: "Rabattkoder", href: "/admin/rabattkoder", icon: Tag },
     ]
