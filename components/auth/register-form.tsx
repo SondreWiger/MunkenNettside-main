@@ -155,233 +155,175 @@ export function RegisterForm() {
     }
   }
 
+  const passwordStrength = (pw: string) => {
+    let score = 0
+    if (pw.length >= 8) score += 1
+    if (/[A-Z]/.test(pw)) score += 1
+    if (/[0-9]/.test(pw)) score += 1
+    if (/[^A-Za-z0-9]/.test(pw)) score += 1
+    return score // 0..4
+  }
+
+  const strength = passwordStrength(password)
+
   if (success) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader className="space-y-1 text-center">
-          <CheckCircle className="w-16 h-16 mx-auto text-green-600" />
-          <CardTitle className="text-2xl font-bold">Sjekk e-posten din</CardTitle>
-          <CardDescription className="text-base">
-            Vi har sendt en bekreftelseslenke til <strong>{email}</strong>. Klikk på lenken for å aktivere kontoen din.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
-          <Button asChild className="w-full h-12">
-            <Link href="/logg-inn">Gå til innlogging</Link>
-          </Button>
-        </CardFooter>
-      </Card>
+      <div className="w-full max-w-4xl mx-auto rounded-lg shadow-lg overflow-hidden grid grid-cols-1 md:grid-cols-2">
+        <div className="hidden md:flex flex-col justify-center items-start gap-4 p-10 bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground">
+          <h2 className="text-3xl font-extrabold">Velkommen til Teateret</h2>
+          <p className="text-lg opacity-90">Sjekk e-posten din for å bekrefte kontoen. Etter bekreftelse kan du logge inn.</p>
+        </div>
+
+        <div className="p-8 bg-card">
+          <div className="max-w-md mx-auto text-center">
+            <CheckCircle className="w-16 h-16 mx-auto text-green-600" />
+            <h3 className="text-2xl font-bold mt-4">Sjekk e-posten din</h3>
+            <p className="mt-2 text-muted-foreground">Vi har sendt en bekreftelseslenke til <strong>{email}</strong>. Klikk på lenken for å aktivere kontoen din.</p>
+            <div className="mt-6">
+              <Button asChild className="w-full h-12">
+                <Link href="/logg-inn">Gå til innlogging</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold text-center">Opprett konto</CardTitle>
-        <CardDescription className="text-center">Fyll ut skjemaet for å opprette en ny konto</CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+    <div className="w-full max-w-4xl mx-auto rounded-lg shadow-lg overflow-hidden grid grid-cols-1 md:grid-cols-2">
+      <div className="hidden md:flex flex-col justify-center items-start gap-4 p-10 bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground">
+        <h2 className="text-3xl font-extrabold">Opprett konto</h2>
+        <p className="text-lg opacity-90">Bli med i Teateret-fellesskapet og bestill billetter, meld deg på kurs og administrer profilen din.</p>
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="fullName" className="text-base">
-              Fullt navn *
-            </Label>
-            <Input
-              id="fullName"
-              type="text"
-              placeholder="Ola Nordmann"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              autoComplete="name"
-              className="h-12 text-base"
-            />
+      <div className="p-8 bg-card">
+        <div className="max-w-md mx-auto">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-bold">Opprett konto</h1>
+            <p className="text-sm text-muted-foreground mt-1">Fyll ut skjemaet for å opprette en ny konto</p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-base">
-              E-post *
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="din@epost.no"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="h-12 text-base"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-base">
-              Telefon (valgfritt)
-            </Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+47 123 45 678"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              autoComplete="tel"
-              className="h-12 text-base"
-            />
-          </div>
+            <div>
+              <Label htmlFor="fullName">Fullt navn *</Label>
+              <Input id="fullName" type="text" placeholder="Ola Nordmann" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name" className="h-12 text-base" />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-base">
-              Passord *
-            </Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Minst 8 tegn"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete="new-password"
-                className="h-12 text-base pr-12"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-12 w-12"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Skjul passord" : "Vis passord"}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            <div>
+              <Label htmlFor="email">E-post *</Label>
+              <Input id="email" type="email" placeholder="din@epost.no" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className="h-12 text-base" />
+            </div>
+
+            <div>
+              <Label htmlFor="phone">Telefon (valgfritt)</Label>
+              <Input id="phone" type="tel" placeholder="+47 123 45 678" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" className="h-12 text-base" />
+            </div>
+
+            <div>
+              <Label htmlFor="password">Passord *</Label>
+              <div className="relative">
+                <Input id="password" type={showPassword ? "text" : "password"} placeholder="Minst 8 tegn" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" className="h-12 text-base pr-12" />
+                <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-12 w-12" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Skjul passord" : "Vis passord"}>
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </Button>
+              </div>
+
+              <div className="mt-2">
+                <div className="h-2 bg-muted rounded overflow-hidden">
+                  <div className={`h-full ${strength >= 3 ? 'bg-green-500' : strength === 2 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${(strength / 4) * 100}%` }} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Passordstyrke: {['Svakt','Ok','Godt','Sterkt'][Math.max(0,strength-1)] || 'Svakt'}</p>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="confirmPassword">Bekreft passord *</Label>
+              <Input id="confirmPassword" type={showPassword ? "text" : "password"} placeholder="Gjenta passord" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required autoComplete="new-password" className="h-12 text-base" />
+            </div>
+
+            <div>
+              <Label htmlFor="adminUuid">Admin UUID (valgfritt)</Label>
+              <Input id="adminUuid" type="text" placeholder="Skriv inn Admin UUID hvis du har mottatt en" value={adminUuid} onChange={(e) => setAdminUuid(e.target.value)} className="h-12 text-base" />
+            </div>
+
+            <div>
+              <Label className="text-base font-semibold">Kontotype *</Label>
+              <RadioGroup value={accountType} onValueChange={(val) => setAccountType(val as AccountType)}>
+                <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
+                  <RadioGroupItem value="standalone" id="standalone" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="standalone" className="cursor-pointer font-medium">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Privatperson
+                      </div>
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Du administrerer kun din egen bruker</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
+                  <RadioGroupItem value="parent" id="parent" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="parent" className="cursor-pointer font-medium">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Foresatt
+                      </div>
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Du kan administrere barn sine påmeldinger</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
+                  <RadioGroupItem value="kid" id="kid" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="kid" className="cursor-pointer font-medium">
+                      <div className="flex items-center gap-2">
+                        <Baby className="h-4 w-4" />
+                        Barn
+                      </div>
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Du trenger foresatts godkjennelse for påmeldinger</p>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {(accountType === "kid" || accountType === "parent") && (
+              <div>
+                <Label htmlFor="dateOfBirth">Fødselsdato {accountType === "kid" ? "*" : "(valgfritt)"}</Label>
+                <Input id="dateOfBirth" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} required={accountType === "kid"} className="h-12 text-base" />
+                {accountType === "kid" && dateOfBirth && (
+                  <p className="text-sm text-muted-foreground mt-1">Alder: {calculateAge(dateOfBirth)} år {calculateAge(dateOfBirth) >= 18 && "(må være under 18)"}</p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <Button type="submit" className="w-full h-12" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Oppretter konto...
+                  </>
+                ) : (
+                  "Opprett konto"
+                )}
               </Button>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="text-base">
-              Bekreft passord *
-            </Label>
-            <Input
-              id="confirmPassword"
-              type={showPassword ? "text" : "password"}
-              placeholder="Gjenta passord"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              className="h-12 text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="adminUuid" className="text-base">
-              Admin UUID (valgfritt)
-            </Label>
-            <Input
-              id="adminUuid"
-              type="text"
-              placeholder="Skriv inn Admin UUID hvis du har mottatt en"
-              value={adminUuid}
-              onChange={(e) => setAdminUuid(e.target.value)}
-              className="h-12 text-base"
-            />
-          </div>
-
-          {/* Account Type Selection */}
-          <div className="space-y-3 pt-2">
-            <Label className="text-base font-semibold">Kontotype *</Label>
-            <RadioGroup value={accountType} onValueChange={(val) => setAccountType(val as AccountType)}>
-              <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                <RadioGroupItem value="standalone" id="standalone" className="mt-1" />
-                <div className="flex-1">
-                  <Label htmlFor="standalone" className="cursor-pointer font-medium">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Privatperson
-                    </div>
-                  </Label>
-                  <p className="text-sm text-muted-foreground">Du administrerer kun din egen bruker</p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                <RadioGroupItem value="parent" id="parent" className="mt-1" />
-                <div className="flex-1">
-                  <Label htmlFor="parent" className="cursor-pointer font-medium">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Foresatt
-                    </div>
-                  </Label>
-                  <p className="text-sm text-muted-foreground">Du kan administrere barn sine påmeldinger</p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                <RadioGroupItem value="kid" id="kid" className="mt-1" />
-                <div className="flex-1">
-                  <Label htmlFor="kid" className="cursor-pointer font-medium">
-                    <div className="flex items-center gap-2">
-                      <Baby className="h-4 w-4" />
-                      Barn
-                    </div>
-                  </Label>
-                  <p className="text-sm text-muted-foreground">Du trenger foresatts godkjennelse for påmeldinger</p>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* Date of Birth for Kids and Parents */}
-          {(accountType === "kid" || accountType === "parent") && (
-            <div className="space-y-2">
-              <Label htmlFor="dateOfBirth" className="text-base">
-                Fødselsdato {accountType === "kid" ? "*" : "(valgfritt)"} 
-              </Label>
-              <Input
-                id="dateOfBirth"
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                required={accountType === "kid"}
-                className="h-12 text-base"
-              />
-              {accountType === "kid" && dateOfBirth && (
-                <p className="text-sm text-muted-foreground">
-                  Alder: {calculateAge(dateOfBirth)} år {calculateAge(dateOfBirth) >= 18 && "(må være under 18)"}
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full h-12 text-base" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Oppretter konto...
-              </>
-            ) : (
-              "Opprett konto"
-            )}
-          </Button>
-
-          <p className="text-center text-muted-foreground">
-            Har du allerede konto?{" "}
-            <Link href="/logg-inn" className="font-medium text-primary hover:underline">
-              Logg inn
-            </Link>
-          </p>
-        </CardFooter>
-      </form>
-    </Card>
+            <p className="text-center text-muted-foreground">Har du allerede konto? <Link href="/logg-inn" className="font-medium text-primary hover:underline">Logg inn</Link></p>
+          </form>
+        </div>
+      </div>
+    </div>
   )
 }

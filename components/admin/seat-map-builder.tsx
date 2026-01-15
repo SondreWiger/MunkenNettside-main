@@ -169,16 +169,16 @@ export function SeatMapBuilder({ venue }: SeatMapBuilderProps) {
   const getCellStyle = (cell: GridCell) => {
     switch (cell.type) {
       case 'seat':
-        return 'bg-green-500 hover:bg-green-600 cursor-pointer'
+        return 'bg-success hover:bg-success/80 cursor-pointer'
       case 'aisle':
-        return 'bg-gray-200 hover:bg-gray-300 cursor-pointer'
+        return 'bg-muted hover:bg-muted/80 cursor-pointer'
       case 'stage':
-        return 'bg-purple-500 hover:bg-purple-600 cursor-pointer'
+        return 'bg-accent hover:bg-accent/80 cursor-pointer'
       case 'wall':
-        return 'bg-gray-800 hover:bg-gray-900 cursor-pointer'
+        return 'bg-secondary hover:bg-secondary/80 cursor-pointer'
       case 'empty':
       default:
-        return 'bg-white border border-gray-200 hover:bg-gray-50 cursor-pointer'
+        return 'bg-card border border-muted hover:bg-muted/80 cursor-pointer'
     }
   }
 
@@ -387,15 +387,15 @@ export function SeatMapBuilder({ venue }: SeatMapBuilderProps) {
                 <span className="text-sm">Aisle</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-purple-500 rounded" />
+                <div className="w-4 h-4 bg-accent rounded" />
                 <span className="text-sm">Stage</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-800 rounded" />
+                <div className="w-4 h-4 bg-secondary rounded" />
                 <span className="text-sm">Wall</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-white border border-gray-300 rounded" />
+                <div className="w-4 h-4 bg-card border border-muted rounded" />
                 <span className="text-sm">Empty</span>
               </div>
             </div>

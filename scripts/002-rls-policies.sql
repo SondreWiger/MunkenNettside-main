@@ -23,7 +23,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+  WHERE id = auth.uid() AND (role = 'admin' OR role = 'superadmin')
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

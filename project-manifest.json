@@ -1,0 +1,129 @@
+{
+  "generated_at": "2025-12-14T00:00:00Z",
+  "total_files_estimate": 3928,
+  "note": "This manifest is a concise, developer-focused map of the repository. It highlights structure, key files, relationships and where runtime/build artifacts live. If you want a file-for-file dump (all 3928 paths), I can produce that as a separate large JSON file on request.",
+  "top_level_overview": {
+    "app/": "Next.js app directory with route-based pages, API routes, layout and admin area. Primary source for site pages and server components.",
+    "components/": "React UI components, layout pieces (header, footer), and small reusable UI building blocks.",
+    "lib/": "Server and client helper modules: supabase clients, utilities for booking, seat-map, email helpers and shared types.",
+    "scripts/": "SQL migrations and helper scripts for DB setup, seeds and fixes. Important files: 001-create-tables.sql, 002-rls-policies.sql, 003-seed-data.sql, 004-fix-rls-and-admin.sql (and many others).",
+    "public/": "Static assets used by the site (images, icons, fallbacks).",
+    "dist/.next/": "Build output (Next/.next). Large; can be ignored for source analysis.",
+    "package.json": "Project dependencies and npm scripts. Use to install and run dev/build commands.",
+    "README.md": "Project README and setup notes.",
+    "sql-and-db-files": "Top-level SQL and helper scripts for database maintenance and fixes (e.g., fix-user-columns.sql, update-venue-seatmap.sql, step0-rollback.sql, etc.)."
+  },
+  "app_pages_summary": {
+    "purpose": "Contains the app routes (Next.js App Router). Many server components and some client components. Pages drive navigation and import components and lib helpers.",
+    "notable_pages": [
+      {
+        "path": "app/page.tsx",
+        "role": "Home page. Imports Header/Footer, fetches ensembles and shows from Supabase, renders hero, featured ensembles, upcoming shows and CTAs. (We read this file earlier.)"
+      },
+      {
+        "path": "app/forestillinger/page.tsx",
+        "role": "Shows listing page (forestillinger). Lists available shows and links to /bestill/[showId]."
+      },
+      {
+        "path": "app/ensemble/[slug]/page.tsx",
+        "role": "Ensemble detail page. Shows ensemble info and links to booking flows (/ensemble/[slug]/bestill and /bestill/[showId])."
+      },
+      {
+        "path": "app/ensemble/[slug]/bestill/page.tsx",
+        "role": "Booking flow for ensemble enrollments. Uses programmatic navigation (router.push) to redirect to login or confirmation pages.",
+        "notes": "Per code search, it pushes to `/logg-inn?redirect=...` when unauthenticated and to `/ensemble/${slug}/bekreftelse?reference=...` on success."
+      },
+      {
+        "path": "app/kurs/[slug]/bestill/page.tsx",
+        "role": "Course booking flow mirroring ensemble booking. Route pushes indicate redirect to login when needed and to /kurs/[slug]/bekreftelse on success."
+      },
+      {
+        "path": "app/bestill/[showId]/page.tsx",
+        "role": "Ticket purchase page for shows. Links to kasse and billetter after purchase."
+      },
+      {
+        "path": "app/kasse/page.tsx",
+        "role": "Checkout page (kasse) and its nested `billett` route."
+      },
+      {
+        "path": "app/bekreftelse/[bookingId]/page.tsx",
+        "role": "Booking confirmation page — shows booking details."
+      },
+      {
+        "path": "app/se/[recordingId]/page.tsx",
+        "role": "Playback / redirect page for recorded performances. Can redirect to external video endpoints."
+      },
+      {
+        "path": "app/logg-inn/page.tsx",
+        "role": "Login page; various flows redirect to dashboard or earlier redirect query param. Header uses link to this page."
+      },
+      {
+        "path": "app/registrer/page.tsx",
+        "role": "Registration page; may redirect to dashboard on success."
+      },
+      {
+        "path": "app/profile/[slug]/page.tsx",
+        "role": "User profile pages; linked from dashboard and account menus."
+      },
+      {
+        "path": "app/dashboard/**",
+        "role": "User dashboard pages (dashboard, innstillinger, foresporsel, pamelding-tillatelser, etc.). Links to admin if user is admin."
+      },
+      {
+        "path": "app/min-side/**",
+        "role": "Personal area; also has older/legacy pages under `min-side`."
+      },
+      {
+        "path": "app/admin/**",
+        "role": "Admin area with many subsections: ensembler, forestillinger, venues, kurs, rabatter, brukere, scan, statistics, bestillinger, innstillinger, legal pages. Admin routes call server-side helpers and admin APIs."
+      }
+    ]
+  },
+  "api_routes_summary": {
+    "purpose": "Server API endpoints used by frontend and admin UI. Many routes under `app/api/*` for seats, bookings, payments, enrollments and admin utilities.",
+    "examples": [
+      "/app/api/seats/reserve/route.ts — seat reservation logic (critical for booking flow)",
+      "/app/api/video/stream/route.ts — stream or video-related endpoints used by playback pages",
+      "/app/api/purchases/create/route.ts — creates purchase and triggers emails/webhooks",
+      "/app/api/admin/* — admin-only endpoints (verify-ticket, check-in, setup-db, stats, etc.)"
+    ]
+  },
+  "components_and_layouts": {
+    "components/": "UI components and small presentational items. Header and Footer live in `components/layout/` and are used across pages.",
+    "components/layout/header.tsx": "Client component used by `app/layout.tsx` — contains main nav, search form, user dropdown and mobile menu. Interacts with supabase browser client for auth state.",
+    "components/layout/footer.tsx": "Site footer used at the bottom of pages."
+  },
+  "lib_and_utils": {
+    "lib/supabase/": "Supabase helper clients — `client.ts` for browser, `server.ts` for server-side. Middleware helpers for auth and server data fetching.",
+    "lib/email/": "Helpers for sending emails: ticket emails, enrollment emails, admin notifications. Used after purchases/enrollments.",
+    "lib/utils/": "Booking helpers, seat generation and seat map utilities. Used by both UI and server code.",
+    "lib/seat-map-types.ts": "Types used across seat-map and booking systems."
+  },
+  "sql_and_migrations": {
+    "scripts/": "Contains SQL migration and RLS policy files (001-create-tables.sql, 002-rls-policies.sql, 003-seed-data.sql, and many more). These define DB schema and are the single source for DB setup.",
+    "top_level_sql": "There are also top-level SQL fixes like `fix-user-columns.sql`, `fix-user-signup-trigger.sql`, and `update-venue-seatmap.sql`.",
+    "note": "Per project instructions, when editing SQL work in the `scripts/000-complete-setup.sql` (or 000 file)."
+  },
+  "dev_and_build": {
+    "package_manager": "pnpm or npm (repo contains pnpm-lock.yaml and package.json)",
+    "dev_server": "next dev / next build outputs appear under `dist/.next/` — these are build artifacts and not source.",
+    "other_scripts": ["verify-setup.mjs", "test-db.mjs", "apply-trigger-fix.mjs"]
+  },
+  "static_and_public": {
+    "public/": "Static files (images, svgs). Used by pages and components.",
+    "styles/": "Global styles and Tailwind config files (tailwind.config.mjs, globals.css in app/).",
+    "postcss.config.mjs and tailwind.config.mjs": "Styling build configuration."
+  },
+  "observations_about_interconnectedness": {
+    "auth": "Auth flows use Supabase — header calls browser client, server pages use server client (lib/supabase/server.ts). Login and register pages redirect back to intended pages via query redirect parameters.",
+    "booking_flow": "Booking goes: ensemble/kurs/forestillinger -> bestill -> kasse -> bekreftelse -> billetter. API endpoints under app/api/* coordinate seat reservation, purchase creation and emails.",
+    "admin": "Admin routes reuse many lib helpers (email, supabase) and have dedicated API endpoints under app/api/admin/*. Admin UI links to admin API endpoints for management tasks and analytics.",
+    "seat-map": "Seat generation and seat-map types/utilities live under lib/ and are used both client-side (seat selection UI) and server-side (seat reservation endpoints)."
+  },
+  "what_i_did_and_where": "I scanned the repository structure and created this concise project manifest. I avoided including the huge build artifacts list (dist/.next) in full detail and focused on the source tree and the important files that matter for development.",
+  "next_actions_you_may_want": [
+    "If you want a full file-by-file JSON index (all 3928 paths) — I can produce that and save it (large).",
+    "If you prefer a Markdown version instead of JSON, I can produce a compact `PROJECT_OVERVIEW.md`.",
+    "If you'd like deeper per-file summaries (e.g., open the top 50 JS/TS/SQL files and extract purpose + exported symbols), I can run that next." 
+  ]
+}

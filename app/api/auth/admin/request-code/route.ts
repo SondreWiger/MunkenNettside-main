@@ -62,6 +62,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Admin already verified' }, { status: 400 })
     }
 
+      // If there exists an outstanding verification that requires a QR scan, force that flow
+      try {
+        const { data: pending, error: pendingErr } = await supabase
+          .from('admin_verifications')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .eq('code_type', 'alphanumeric')
+          .eq('qr_scanned', false)
+          .gt('expires_at', new Date().toISOString())
+          .limit(1)
+
+        if (pendingErr) {
+          console.error('request-code: failed to check pending QR verifications', pendingErr)
+        } else if (pending && pending.length > 0) {
+          return NextResponse.json({ error: 'QR verification required before requesting a code' }, { status: 400 })
+        }
+      } catch (err) {
+        console.error('request-code: error checking pending QR verifications', err)
+      }
+
     // Generate 6-digit numeric code
     const code = Math.floor(100000 + Math.random() * 900000).toString()
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()

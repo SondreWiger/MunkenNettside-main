@@ -91,24 +91,47 @@ export function UserNotifications() {
 
     loadNotifications()
 
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('enrollment_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'ensemble_enrollments'
-        },
-        () => {
-          loadNotifications()
-        }
-      )
-      .subscribe()
+    // Set up real-time subscription if environment supports WebSocket.
+    // In some dev contexts (file://, restricted browsers) WebSocket may be unavailable
+    // which causes the Supabase realtime client to throw "The operation is insecure.".
+    // Guard and gracefully fall back to polling in that case.
+    const canUseWebSocket = typeof window !== 'undefined' &&
+      (window.location.protocol === 'https:' || window.location.protocol === 'http:' || window.location.hostname === 'localhost') &&
+      typeof (window as any).WebSocket !== 'undefined'
 
-    return () => {
-      supabase.removeChannel(channel)
+    if (canUseWebSocket) {
+      try {
+        const channel = supabase
+          .channel('enrollment_changes')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'ensemble_enrollments'
+            },
+            () => {
+              loadNotifications()
+            }
+          )
+          .subscribe()
+
+        return () => {
+          try {
+            supabase.removeChannel(channel)
+          } catch (e) {
+            // ignore
+          }
+        }
+      } catch (err) {
+        // If subscription initialization throws, fallback to polling
+        const interval = setInterval(() => loadNotifications(), 30000)
+        return () => clearInterval(interval)
+      }
+    } else {
+      // Fallback: poll for changes every 30s
+      const interval = setInterval(() => loadNotifications(), 30000)
+      return () => clearInterval(interval)
     }
   }, [supabase])
 

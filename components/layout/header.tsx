@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, User, Ticket, Film, Home, LogIn, LogOut, BookOpen, Settings, LayoutDashboard, Archive } from "lucide-react"
+import { Menu, User, Ticket, Film, Home, LogIn, LogOut, BookOpen, Settings, LayoutDashboard, Theater } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import {
@@ -21,7 +21,7 @@ const navigation = [
   { name: "Hjem", href: "/", icon: Home },
   { name: "Forestillinger", href: "/forestillinger", icon: Ticket },
   { name: "Kurs", href: "/kurs", icon: BookOpen },
-  { name: "Arkiv", href: "/archive", icon: Archive },
+  { name: "Produksjoner", href: "/productions", icon: Theater },
   { name: "Opptak", href: "/opptak", icon: Film },
 ]
 
@@ -29,7 +29,9 @@ export function Header() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [userSlug, setUserSlug] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [requiresAdminVerification, setRequiresAdminVerification] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const supabase = getSupabaseBrowserClient()
   const pathname = usePathname()
   const router = useRouter()
@@ -59,34 +61,57 @@ export function Header() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!isAdmin) return
+      try {
+        const res = await fetch('/api/auth/admin/status')
+        if (!res.ok) return
+        const data = await res.json()
+        setRequiresAdminVerification(!!data.requiresVerification)
+      } catch (e) {
+        // ignore
+      }
+    }
+    checkAdminStatus()
+  }, [isAdmin])
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     window.location.href = "/"
   }
 
+  const headerClass = `sticky top-0 z-50 w-full transition-colors duration-200 ${scrolled ? 'border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm' : 'bg-transparent border-none'}`
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <nav className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <Link
-          href="/"
-          className="flex items-center gap-2 text-lg font-bold text-primary"
-          aria-label="Teateret - Gå til forsiden"
-        >
-          <span className="text-xl" role="img" aria-hidden="true">
-            🎭
-          </span>
-          <span className="text-base">Teateret</span>
+    <header className={headerClass}>
+      <nav className="container flex h-12 items-center justify-between px-4 md:px-6">
+        <Link href="/" className="flex items-center gap-3 font-semibold text-[var(--color-primary)] headline-serif" aria-label="Teateret - Gå til forsiden">
+          <span className="sr-only">Teateret</span>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-sm bg-[var(--color-foreground)]/90 text-[var(--color-background)] flex items-center justify-center">🎭</div>
+            <span className="text-base md:text-lg text-[var(--color-foreground)]">Teateret</span>
+          </div>
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex md:items-center md:gap-4">
+          <div className="hidden md:flex md:items-center md:gap-6">
           {navigation.map((item) => {
             const active = pathname?.startsWith(item.href)
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-2 text-sm font-medium transition-colors ${active ? 'text-foreground' : 'text-muted-foreground'} hover:text-foreground focus:text-foreground`}
+                className={`flex items-center gap-2 text-sm tracking-wide font-medium transition-colors ${
+                  active ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]'
+                } hover:text-[var(--color-foreground)] focus:text-[var(--color-foreground)]`}
                 aria-current={active ? 'page' : undefined}
               >
                 <item.icon className="h-4 w-4" aria-hidden="true" />
@@ -95,19 +120,17 @@ export function Header() {
             )
           })}
 
-          {/* Search box */}
-          <form onSubmit={(e) => {
-            e.preventDefault()
-            const form = e.currentTarget as HTMLFormElement
-            const input = form.querySelector('input') as HTMLInputElement
-            const q = input?.value.trim()
-            if (q) router.push(`/search?q=${encodeURIComponent(q)}`)
-          }} className="ml-4 flex items-center">
-            <input aria-label="Søk" placeholder="Søk..." className="w-40 rounded-md border px-2 py-1 text-sm focus:outline-none focus:ring" />
-          </form>
+          
         </div>
 
         <div className="flex items-center gap-4">
+          {requiresAdminVerification && (
+            <div className="hidden md:block">
+              <Button variant="destructive" size="sm" onClick={() => { window.location.href = '/logg-inn?admin_verification_required=1&redirect=/admin' }}>
+                Verifisering påkrevd
+              </Button>
+            </div>
+          )}
           {user && <UserNotifications />}
           {user ? (
             <DropdownMenu>

@@ -27,19 +27,22 @@ interface Seat {
   reserved_until?: string
 }
 
+import type { Seat as DBSeat } from "@/lib/types"
+import type { SeatMapConfig, MapElement, SeatElement } from "@/lib/seat-map-types"
+
 interface VisualSeatMapProps {
   venueGrid: {
     gridRows: number
     gridCols: number
     grid: GridCell[][]
   }
-  seats: Seat[]
+  seats: DBSeat[]
   selectedSeatIds: string[]
   onSeatSelect: (seatId: string) => void
   onSeatDeselect: (seatId: string) => void
   isLoading?: boolean
   showPrices?: boolean
-  seatMapConfig?: any
+  seatMapConfig?: SeatMapConfig | undefined
 }
 
 export function VisualSeatMap({
@@ -55,7 +58,7 @@ export function VisualSeatMap({
   const [hoveredCell, setHoveredCell] = useState<{row: number, col: number} | null>(null)
 
   // Detect freeform seat positions from seatMapConfig
-  const isFreeform = !!(seatMapConfig && Array.isArray(seatMapConfig.seats) && seatMapConfig.seats.some((s: any) => typeof s.x === 'number' && typeof s.y === 'number'))
+  const isFreeform = !!(seatMapConfig && Array.isArray((seatMapConfig as any).seats) && (seatMapConfig as any).seats.some((s: MapElement) => typeof s.x === 'number' && typeof s.y === 'number'))
 
   // Create a map of seat positions to seat data
   const seatMap = useCallback(() => {
@@ -72,12 +75,12 @@ export function VisualSeatMap({
   // Compute display row mapping so that "Rad 1" is the bottom-most row and
   // only rows that contain seats are counted (skip aisles/walkways).
   const rowDisplayMap = useMemo(() => {
-    const map: any = {}
+    const map: Record<string, number> = {}
 
-    if (isFreeform) {
-      const groups: any = {}
-      ;(seatMapConfig.seats || []).forEach((s: any, idx: number) => {
-        const rowKey = String(s.row || s.row_label || s.r || '')
+    if (isFreeform && seatMapConfig && Array.isArray((seatMapConfig as any).seats)) {
+      const groups: Record<string, { totalY: number; count: number; firstIdx: number }> = {}
+      ;((seatMapConfig as any).seats as SeatElement[]).forEach((s: SeatElement, idx: number) => {
+        const rowKey = String(s.row || (s as any).row_label || (s as any).r || '')
         if (!groups[rowKey]) groups[rowKey] = { totalY: 0, count: 0, firstIdx: idx }
         const y = (typeof s.y === 'number' && s.y <= 1) ? s.y * 100 : (typeof s.y === 'number' ? s.y : 0)
         groups[rowKey].totalY += y
@@ -274,7 +277,7 @@ export function VisualSeatMap({
             <div className="w-full overflow-auto">
               <div className="relative bg-gray-50 rounded-lg border p-4" style={{ minHeight: 400 }}>
                 {/* Freeform container - seats positioned by x/y (percent) from seatMapConfig */}
-                {seatMapConfig.seats.map((sc: any, idx: number) => {
+                {Array.isArray((seatMapConfig as any)?.seats) && ((seatMapConfig as any).seats as SeatElement[]).map((sc: SeatElement, idx: number) => {
                   // normalize x/y to percentages
                   let x = sc.x
                   let y = sc.y
@@ -282,9 +285,9 @@ export function VisualSeatMap({
                   if (y <= 1) y = y * 100
 
                   // Try to find matching seat record by row/number
-                  const key = `${sc.row || sc.r || (sc.row_label) || ''}-${sc.number || sc.num || sc.n || ''}`
+                  const key = `${sc.row || ''}-${sc.number || ''}`
                   // fallback: try numeric mapping
-                  const seatRecord = seats.find(s => (s.row === String(sc.row) || s.row === String(sc.row_label) || s.row === sc.r) && Number(s.number) === Number(sc.number))
+                  const seatRecord = seats.find(s => s.row === String(sc.row) && Number(s.number) === Number(sc.number))
 
                   const isSelected = seatRecord ? selectedSeatIds.includes(seatRecord.id) : false
 

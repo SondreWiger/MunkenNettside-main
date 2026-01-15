@@ -7,7 +7,7 @@ export function TopShowsChartClient({ initialData }: { initialData?: any[] }) {
   const [data, setData] = useState(initialData || [])
 
   useEffect(() => {
-    let mounted = true
+    const mounted = true
     const fetchData = async () => {
       try {
   const res = await fetch('/api/admin/stats', { credentials: 'include' })

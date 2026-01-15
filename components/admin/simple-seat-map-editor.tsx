@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,10 +36,10 @@ interface SimpleSeatMapEditorProps {
 }
 
 const SEAT_TYPES: { type: SeatType; label: string; color: string; description: string }[] = [
-  { type: 'inactive', label: 'Inaktiv', color: 'bg-gray-200 border-gray-300', description: 'Tom plass' },
-  { type: 'active', label: 'Aktiv', color: 'bg-green-500 border-green-600 text-white', description: 'Tilgjengelig sete' },
-  { type: 'reserved', label: 'Reservert', color: 'bg-yellow-500 border-yellow-600 text-white', description: 'Reservert sete' },
-  { type: 'taken', label: 'Opptatt', color: 'bg-gray-200 border-gray-300', description: 'Opptatt sete' },
+  { type: 'inactive', label: 'Inaktiv', color: 'bg-muted border-muted-foreground', description: 'Tom plass' },
+  { type: 'active', label: 'Aktiv', color: 'bg-success border-success-foreground text-success-foreground', description: 'Tilgjengelig sete' },
+  { type: 'reserved', label: 'Reservert', color: 'bg-warning border-warning-foreground text-warning-foreground', description: 'Reservert sete' },
+  { type: 'taken', label: 'Opptatt', color: 'bg-muted border-muted-foreground', description: 'Opptatt sete' },
 ];
 
 // Seat types available in the editor (excluding reserved/taken which are set by checkout)
@@ -233,7 +233,7 @@ export function SimpleSeatMapEditor({ initialMap, onSave, venueId }: SimpleSeatM
           </div>
         </div>
         
-        <div className="inline-block bg-white p-4 rounded border shadow-sm">
+  <div className="inline-block bg-card p-4 rounded border shadow-sm text-card-foreground">
           {/* Grid container using CSS Grid for perfect alignment */}
           <div 
             className="grid gap-3"

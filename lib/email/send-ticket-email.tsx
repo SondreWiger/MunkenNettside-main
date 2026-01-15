@@ -1,6 +1,7 @@
-'use server'
+"use server"
 
 import nodemailer from 'nodemailer'
+import { getThemeTokensServer } from '@/lib/theme/getThemeTokensServer'
 import { formatDate, formatTime, formatPrice } from '@/lib/utils/booking'
 
 interface TicketEmailData {
@@ -77,6 +78,14 @@ export async function sendTicketEmail(data: TicketEmailData): Promise<{ success:
       )
       .join('')
 
+    const theme = (await getThemeTokensServer()) || {}
+
+    const heroGradient = theme.gradient_hero || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+    const cardBg = theme.card || '#FFFFFF'
+    const cardFg = theme.card_foreground || '#333'
+    const muted = theme.muted || '#555'
+    const accent = theme.primary || '#667eea'
+
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -85,22 +94,22 @@ export async function sendTicketEmail(data: TicketEmailData): Promise<{ success:
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
         <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+          <div style="background: ${heroGradient}; padding: 20px; text-align: center;">
             <h1 style="color: white; margin: 0; font-size: 28px;">🎭 Din billett er klar!</h1>
           </div>
           
-          <div style="max-width: 600px; margin: 20px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="max-width: 600px; margin: 20px auto; background: ${cardBg}; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             
-            <p style="color: #333; margin-bottom: 20px;">Hei ${data.customerName},</p>
+            <p style="color: ${cardFg}; margin-bottom: 20px;">Hei ${data.customerName},</p>
             
-            <p style="color: #555; margin-bottom: 20px;">
+            <p style="color: ${muted}; margin-bottom: 20px;">
               Takk for at du bestilte billetter til ${data.showTitle}! Her er din billett med QR-kode.
             </p>
 
             <!-- Booking Reference -->
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
-              <p style="color: #666; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase;">Bokingsreferanse</p>
-              <p style="color: #333; font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; margin: 0; letter-spacing: 2px;">
+            <div style="background: ${theme.color_surface || '#f8f9fa'}; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
+              <p style="color: ${theme.muted || '#666'}; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase;">Bokingsreferanse</p>
+              <p style="color: ${cardFg}; font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; margin: 0; letter-spacing: 2px;">
                 ${data.bookingReference}
               </p>
             </div>
@@ -112,9 +121,9 @@ export async function sendTicketEmail(data: TicketEmailData): Promise<{ success:
             </div>
 
             <!-- Show Details -->
-            <div style="background: #f0f7ff; padding: 20px; border-radius: 6px; margin: 20px 0;">
-              <h3 style="color: #333; margin-top: 0; margin-bottom: 12px;">Arrangement</h3>
-              <table style="width: 100%; color: #555;">
+            <div style="background: ${theme.color_card || '#f0f7ff'}; padding: 20px; border-radius: 6px; margin: 20px 0;">
+              <h3 style="color: ${cardFg}; margin-top: 0; margin-bottom: 12px;">Arrangement</h3>
+              <table style="width: 100%; color: ${muted};">
                 <tr style="border-bottom: 1px solid #ddd;">
                   <td style="padding: 8px 0; padding-right: 10px; font-weight: 500;">Forestilling:</td>
                   <td style="padding: 8px 0; text-align: right;"><strong>${data.showTitle}</strong></td>
@@ -139,11 +148,11 @@ export async function sendTicketEmail(data: TicketEmailData): Promise<{ success:
               <h3 style="color: #333; margin-top: 0; margin-bottom: 12px;">Billetter</h3>
               <table style="width: 100%; border-collapse: collapse; color: #555;">
                 <thead>
-                  <tr style="background: #f0f7ff; border-bottom: 2px solid #667eea;">
-                    <th style="padding: 10px; text-align: left; font-weight: 600; color: #333;">Seksjon</th>
-                    <th style="padding: 10px; text-align: center; font-weight: 600; color: #333;">Rad</th>
-                    <th style="padding: 10px; text-align: center; font-weight: 600; color: #333;">Sete</th>
-                    <th style="padding: 10px; text-align: right; font-weight: 600; color: #333;">Pris</th>
+                  <tr style="background: ${theme.color_card || '#f0f7ff'}; border-bottom: 2px solid ${accent};">
+                    <th style="padding: 10px; text-align: left; font-weight: 600; color: ${cardFg};">Seksjon</th>
+                    <th style="padding: 10px; text-align: center; font-weight: 600; color: ${cardFg};">Rad</th>
+                    <th style="padding: 10px; text-align: center; font-weight: 600; color: ${cardFg};">Sete</th>
+                    <th style="padding: 10px; text-align: right; font-weight: 600; color: ${cardFg};">Pris</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,9 +162,9 @@ export async function sendTicketEmail(data: TicketEmailData): Promise<{ success:
             </div>
 
             <!-- Total -->
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: right;">
-              <p style="color: #666; margin: 0 0 8px 0;">Totalpris:</p>
-              <p style="color: #667eea; font-size: 24px; font-weight: bold; margin: 0;">
+            <div style="background: ${theme.color_surface || '#f8f9fa'}; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: right;">
+              <p style="color: ${muted}; margin: 0 0 8px 0;">Totalpris:</p>
+              <p style="color: ${accent}; font-size: 24px; font-weight: bold; margin: 0;">
                 ${formatPrice(data.totalAmount)}
               </p>
             </div>

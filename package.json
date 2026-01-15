@@ -10,6 +10,7 @@
   "dist": "rm -rf dist && next build && mkdir -p dist && cp -R .next package.json server.js public next.config.mjs index.html dist/ && echo '✅ Dist folder created at ./dist with index.html'",
   "test:seat:concurrency": "node ./scripts/test-seat-concurrency.mjs",
   "test:admin:db": "node ./scripts/test-admin-db.mjs"
+    ,"test:theme": "node ./scripts/test-theme-tokens.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -82,5 +83,9 @@
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
+    ,"eslint": "^8.56.0"
+    ,"@typescript-eslint/eslint-plugin": "^6.14.0"
+    ,"@typescript-eslint/parser": "^6.14.0"
+    ,"eslint-config-next": "^14.0.0"
   }
 }

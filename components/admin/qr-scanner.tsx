@@ -1,4 +1,5 @@
 "use client"
+"use client"
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -248,7 +249,7 @@ export function QRScanner() {
 
       {mode === "camera" && (
         <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full">
-          <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl flex-1 mb-4 flex items-center justify-center">
+          <div className="relative bg-card rounded-lg overflow-hidden shadow-2xl flex-1 mb-4 flex items-center justify-center">
             <video
               ref={videoRef}
               className="w-full h-full object-cover"
@@ -259,24 +260,24 @@ export function QRScanner() {
             <canvas ref={canvasRef} className="hidden" />
 
             {!isCameraActive && !cameraError && (
-              <div className="text-center text-white">
+              <div className="text-center text-card-foreground">
                 <Camera className="h-16 w-16 mx-auto mb-3 opacity-50" />
                 <p className="text-lg font-semibold">Click "Start Camera" below</p>
               </div>
             )}
 
             {!isCameraActive && cameraError && (
-              <div className="text-center text-white p-6">
+              <div className="text-center text-destructive-foreground p-6">
                 <AlertCircle className="h-16 w-16 mx-auto mb-3 text-red-400" />
                 <p className="text-lg font-semibold">{cameraError}</p>
               </div>
             )}
 
             {isLoading && (
-              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+              <div className="absolute inset-0 bg-overlay flex items-center justify-center">
                 <div className="text-center">
-                  <Loader2 className="h-12 w-12 animate-spin text-white mx-auto mb-3" />
-                  <p className="text-white font-semibold">Verifying...</p>
+                  <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-3" />
+                  <p className="text-primary font-semibold">Verifying...</p>
                 </div>
               </div>
             )}
@@ -337,7 +338,7 @@ export function QRScanner() {
       )}
 
       {result && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end justify-center p-4 z-50">
+  <div className="fixed inset-0 bg-overlay backdrop-blur-sm flex items-end justify-center p-4 z-50">
           <Card className={`w-full max-w-md border-2 shadow-2xl ${getCardColor()} animate-in slide-in-from-bottom-5`}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

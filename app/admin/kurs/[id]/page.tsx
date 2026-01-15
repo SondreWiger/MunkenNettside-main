@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import ActorPicker from "@/components/admin/actor-picker"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import SessionManager from "@/components/admin/session-manager"
 
 export const dynamic = "force-dynamic"
 
@@ -34,6 +36,7 @@ interface Kurs {
   price_nok: number
   is_published: boolean
   featured: boolean
+  instructor_actor_id?: string | null
 }
 
 export default function EditKursPage() {
@@ -44,9 +47,7 @@ export default function EditKursPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [formData, setFormData] = useState<Kurs | null>(null)
-
   const supabase = getSupabaseBrowserClient()
-
   useEffect(() => {
     loadKurs()
   }, [kursId])
@@ -65,6 +66,8 @@ export default function EditKursPage() {
       setIsLoadingData(false)
     }
   }
+
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,6 +91,7 @@ export default function EditKursPage() {
           level: formData.level,
           duration_weeks: formData.duration_weeks,
           max_participants: formData.max_participants,
+            instructor_actor_id: formData.instructor_actor_id || null,
           thumbnail_url: formData.thumbnail_url,
           banner_url: formData.banner_url,
           synopsis_short: formData.synopsis_short,
@@ -142,6 +146,7 @@ export default function EditKursPage() {
             <TabsTrigger value="details">Detaljer</TabsTrigger>
             <TabsTrigger value="media">Media</TabsTrigger>
             <TabsTrigger value="publishing">Publisering</TabsTrigger>
+            <TabsTrigger value="sessions">Øvinger</TabsTrigger>
           </TabsList>
 
           {/* BASIC TAB */}
@@ -182,6 +187,14 @@ export default function EditKursPage() {
                     id="director"
                     value={formData.director}
                     onChange={(e) => setFormData({ ...formData, director: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="instructor_actor_id">Knytt til skuespiller (valgfritt)</Label>
+                  <ActorPicker
+                    value={formData.instructor_actor_id || null}
+                    onChange={(id) => setFormData({ ...formData, instructor_actor_id: id })}
                   />
                 </div>
 
@@ -330,6 +343,19 @@ export default function EditKursPage() {
                     onCheckedChange={(checked) => setFormData({ ...formData, featured: checked })}
                   />
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* SESSIONS / ØVINGER TAB */}
+          <TabsContent value="sessions" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Øvinger / Møtedager</CardTitle>
+                <CardDescription>Administrer planlagte øvinger for dette kurset</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SessionManager kursId={kursId} />
               </CardContent>
             </Card>
           </TabsContent>

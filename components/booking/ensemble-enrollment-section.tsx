@@ -1,11 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import type { Booking } from "@/lib/types"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, CheckCircle, Clock, XCircle, User } from "lucide-react"
+import { Users, CheckCircle, Clock, XCircle } from "lucide-react"
+// Local type for user profile/child with all required fields
+type ProfileUser = {
+  id: string
+  full_name: string
+  email: string
+  account_type?: string
+  avatar_url?: string
+  enrollment_permission?: string
+}
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 interface EnsembleEnrollmentSectionProps {
@@ -16,13 +26,13 @@ interface EnsembleEnrollmentSectionProps {
 
 export function EnsembleEnrollmentSection({ ensembleId, ensembleSlug, ensembleTitle }: EnsembleEnrollmentSectionProps) {
   // State declarations (only once, at the top)
-  const [user, setUser] = useState<any>(null)
-  const [userProfile, setUserProfile] = useState<any>(null)
-  const [myEnrollment, setMyEnrollment] = useState<any>(null)
-  const [childrenEnrollments, setChildrenEnrollments] = useState<any[]>([])
-  const [connectedChildren, setConnectedChildren] = useState<any[]>([])
+  const [user, setUser] = useState<ProfileUser | null>(null)
+  const [userProfile, setUserProfile] = useState<ProfileUser | null>(null)
+  const [myEnrollment, setMyEnrollment] = useState<Booking | null>(null)
+  const [childrenEnrollments, setChildrenEnrollments] = useState<Booking[]>([])
+  const [connectedChildren, setConnectedChildren] = useState<ProfileUser[]>([])
   const [enrollmentPermission, setEnrollmentPermission] = useState<string | null>(null)
-  const [parentInfo, setParentInfo] = useState<any>(null)
+  const [parentInfo, setParentInfo] = useState<ProfileUser | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = getSupabaseBrowserClient()
 
@@ -87,16 +97,15 @@ export function EnsembleEnrollmentSection({ ensembleId, ensembleSlug, ensembleTi
 
       if (familyConnections && familyConnections.length > 0) {
         const children = familyConnections
-          .filter((fc: any) => fc.child)
-          .map((fc: any) => ({
+          .filter((fc: { child: ProfileUser }) => fc.child)
+          .map((fc: { child: ProfileUser; enrollment_permission: string }) => ({
             ...fc.child,
             enrollment_permission: fc.enrollment_permission || 'request'
           }))
-        
         setConnectedChildren(children)
 
         // Get enrollments for each child
-        const childIds = children.map((child: any) => child.id)
+  const childIds = children.map((child: ProfileUser) => child.id)
         const { data: childEnrolls } = await supabase
           .from("ensemble_enrollments")
           .select("*")
@@ -105,8 +114,8 @@ export function EnsembleEnrollmentSection({ ensembleId, ensembleSlug, ensembleTi
 
         if (childEnrolls) {
           // Map enrollments with child data
-          const enrichedEnrollments = childEnrolls.map((enrollment: any) => {
-            const child = children.find((c: any) => c.id === enrollment.user_id)
+          const enrichedEnrollments = childEnrolls.map((enrollment: Booking) => {
+            const child = children.find((c: ProfileUser) => c.id === enrollment.user_id)
             return { ...enrollment, child }
           })
           setChildrenEnrollments(enrichedEnrollments)
@@ -211,7 +220,7 @@ export function EnsembleEnrollmentSection({ ensembleId, ensembleSlug, ensembleTi
           {/* My enrollment status */}
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-muted-foreground" />
+              <Users className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="font-medium">Meg selv</p>
                 {myEnrollment && (
@@ -234,7 +243,7 @@ export function EnsembleEnrollmentSection({ ensembleId, ensembleSlug, ensembleTi
               <div className="border-t pt-4">
                 <p className="text-sm font-medium mb-3">Barn</p>
                 <div className="space-y-2">
-                  {connectedChildren.map((child: any) => {
+                  {connectedChildren.map((child) => {
                     const enrollment = childrenEnrollments.find(e => e.user_id === child.id)
                     return (
                       <div key={child.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -316,8 +325,8 @@ export function EnsembleEnrollmentSection({ ensembleId, ensembleSlug, ensembleTi
                     alert('Forespørsel sendt til din foresatt!')
                     // Reload to update UI
                     loadEnrollmentData()
-                  } catch (error: any) {
-                    alert(error.message || 'Kunne ikke sende forespørsel')
+                  } catch (error) {
+                    alert((error as Error).message || 'Kunne ikke sende forespørsel')
                   }
                 }}
               >

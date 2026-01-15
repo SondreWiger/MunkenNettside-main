@@ -100,58 +100,82 @@ export default async function HomePage() {
         <section className="relative">
           <div className="relative">
             {/* Background image (use first featured if available) */}
-            {featuredEnsembles[0] ? (
-              <div className="absolute inset-0 -z-10">
-                <Image
-                  src={featuredEnsembles[0].thumbnail_url || '/hero-fallback.jpg'}
-                  alt={featuredEnsembles[0].title}
-                  fill
-                  className="object-cover object-center filter contrast-95 saturate-90"
-                />
-                <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/20 to-black/40" />
-                {/* film grain SVG overlay */}
-                <div
-                  aria-hidden
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    backgroundImage:
-                      "url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><filter id=\'f\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'1.2\' numOctaves=\'1\' stitchTiles=\'stitch\' /></filter><rect width=\'100%\' height=\'100%\' filter=\'url(%23f)\' opacity=\'0.03\' fill=\'black\'/></svg>')",
-                    mixBlendMode: 'overlay',
-                  }}
-                />
-              </div>
+              {featuredEnsembles[0] ? (
+              <div className="absolute inset-0 -z-10 film-grain bg-[var(--color-stage-black)]">
+                  {
+                    /* Choose src (either featured image or local svg fallback). Use a constant to keep it readable */
+                  }
+                  <Image
+                    src={featuredEnsembles[0]?.thumbnail_url ?? '/hero-fallback.svg'}
+                    alt={featuredEnsembles[0]?.title ?? 'Teateret'}
+                    fill
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover object-center"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-stage-black)/30] via-[var(--color-stage-black)/20] to-[var(--color-stage-black)/40]" aria-hidden />
+                </div>
             ) : (
               <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary to-primary/80" />
             )}
 
-            <div className="container relative px-4 py-28 md:py-36 lg:py-44">
-              <div className="mx-auto max-w-3xl text-center">
-                <div className="inline-block mb-4 text-sm font-medium tracking-wider text-amber-600/90 uppercase">
-                  {featuredEnsembles[0] ? 'Fremhevet produksjon' : 'Velkommen'}
+            <div className="container relative px-4 py-24 md:py-32 lg:py-40">
+              <div className="mx-auto max-w-6xl lg:grid lg:grid-cols-12 lg:gap-12 items-center">
+                {/* Left: content */}
+                <div className="lg:col-span-6 xl:col-span-5 max-w-3xl">
+                    <div className="inline-block mb-4 text-sm font-medium tracking-wider text-[var(--color-accent)]/90 uppercase">
+                      {featuredEnsembles[0] ? 'Fremhevet produksjon' : 'Velkommen'}
+                    </div>
+                    <div className="hero-content">
+                            {/* If we have a featured image, prefer warm spotlight text; otherwise use foreground token */}
+                            <h1 className={`clamp-hero headline-serif hero-title leading-tight`} style={{ fontFamily: 'var(--font-display)' }} id="hero-heading">
+                              <span className={featuredEnsembles[0] ? 'text-[var(--color-spotlight-warm)]' : 'text-[var(--color-foreground)]'}>{featuredEnsembles[0] ? featuredEnsembles[0].title : 'Velkommen til Teateret'}</span>
+                            </h1>
+                            <p className={`mt-6 text-lg md:text-xl hero-subtitle leading-relaxed ${featuredEnsembles[0] ? 'text-[var(--color-foggy-white)]' : 'text-[var(--color-muted-foreground)]'}`}>
+                        {featuredEnsembles[0]
+                          ? featuredEnsembles[0].synopsis_short || featuredEnsembles[0].description
+                          : 'Opplev magien på scenen - eller hjemmefra med våre digitale opptak.'}
+                      </p>
+                    </div>
+
+                  <div className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4 hero-ctas">
+                    <Button asChild size="lg" className="gap-2 bg-[var(--fg)] text-[var(--card)]" aria-label={featuredEnsembles[0] ? `Les mer om ${featuredEnsembles[0].title}` : 'Se forestillinger'}>
+                      <Link href={featuredEnsembles[0] ? `/ensemble/${featuredEnsembles[0].slug}` : '/forestillinger'}>
+                        <Ticket className="mr-2 h-5 w-5" aria-hidden />
+                        {featuredEnsembles[0] ? 'Les mer' : 'Se forestillinger'}
+                      </Link>
+                    </Button>
+
+                    <Button asChild size="lg" variant="outline" className="gap-2" aria-label="Utforsk opptak">
+                      <Link href="/opptak">
+                        <Film className="mr-2 h-5 w-5" aria-hidden />
+                        Utforsk opptak
+                      </Link>
+                    </Button>
+                  </div>
+
+                  <div className="mt-6">
+                    <a href="#newsletter" className="text-sm text-[var(--color-overlay-text)] underline-hover">
+                      Meld på nyhetsbrevet for eksklusive oppdateringer
+                    </a>
+                  </div>
                 </div>
-                <h1 className="font-serif text-4xl md:text-6xl lg:text-[5rem] leading-tight text-white drop-shadow-sm">
-                  {featuredEnsembles[0] ? featuredEnsembles[0].title : 'Velkommen til Teateret'}
-                </h1>
-                <p className="mt-6 text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed">
-                  {featuredEnsembles[0]
-                    ? featuredEnsembles[0].synopsis_short || featuredEnsembles[0].description
-                    : 'Opplev magien på scenen - eller hjemmefra med våre digitale opptak.'}
-                </p>
 
-                <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-                  <Button asChild size="lg" className="h-14 px-8 text-lg bg-foreground text-background shadow-pop">
-                    <Link href={featuredEnsembles[0] ? `/ensemble/${featuredEnsembles[0].slug}` : '/forestillinger'}>
-                      <Ticket className="mr-2 h-5 w-5" />
-                      {featuredEnsembles[0] ? 'Les mer' : 'Se forestillinger'}
-                    </Link>
-                  </Button>
-
-                  <Button asChild size="lg" variant="outline" className="h-14 px-8 text-lg">
-                    <Link href="/opptak">
-                      <Film className="mr-2 h-5 w-5" />
-                      Utforsk opptak
-                    </Link>
-                  </Button>
+                {/* Right: image / visual */}
+                <div className="hidden lg:block lg:col-span-6 xl:col-span-7 relative h-80 md:h-96 hero-image">
+                  {featuredEnsembles[0] ? (
+                    <Image
+                      src={featuredEnsembles[0]?.thumbnail_url ?? '/hero-fallback.svg'}
+                      alt={featuredEnsembles[0]?.title ?? 'Teateret'}
+                      fill
+                      priority
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      className="object-cover object-center"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-stage-black)/30] via-[var(--color-stage-black)/15] to-transparent" aria-hidden />
                 </div>
               </div>
             </div>
@@ -175,7 +199,7 @@ export default async function HomePage() {
 
         {/* Featured Ensembles */}
         {featuredEnsembles.length > 0 && (
-          <section className="py-16 md:py-24">
+          <section className="py-16 md:py-24 bg-card">
             <div className="container px-4">
               <div className="flex items-center justify-between mb-8">
                 <div>
@@ -206,18 +230,21 @@ export default async function HomePage() {
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                      <div className="absolute bottom-6 left-6 text-white">
-                        <div className="mb-2 text-sm tracking-wider text-amber-500">Fremhevet</div>
-                        <h3 className="text-2xl font-serif font-bold leading-tight">{ensemble.title}</h3>
-                        <p className="mt-2 max-w-xl text-sm text-white/90 line-clamp-2">
-                          {ensemble.synopsis_short || ensemble.description}
-                        </p>
-                        <div className="mt-4">
-                          <Button asChild size="sm" className="bg-foreground text-background">
-                            <Link href={`/ensemble/${ensemble.slug}`}>Se mer</Link>
-                          </Button>
-                        </div>
-                      </div>
+                            <div className="absolute bottom-6 left-6 text-[var(--color-on-hero)] max-w-[60%]">
+                              <div className="mb-2 text-sm tracking-wider text-amber-500">Fremhevet</div>
+                              <h3 className="text-2xl font-serif font-bold leading-tight">{ensemble.title}</h3>
+                              <p className="mt-2 max-w-xl text-sm text-[var(--color-overlay-text)] line-clamp-3">
+                                {ensemble.synopsis_short || ensemble.description}
+                              </p>
+                              <div className="mt-4 flex gap-3">
+                                <Button asChild size="sm" className="bg-foreground text-background shadow-pop btn-primary">
+                                  <Link href={`/ensemble/${ensemble.slug}`}>Se mer</Link>
+                                </Button>
+                                <Button asChild size="sm" variant="outline" className="btn-secondary">
+                                  <Link href={`/forestillinger`}>Se forestillinger</Link>
+                                </Button>
+                              </div>
+                            </div>
                     </div>
                   </article>
                 ))}
@@ -230,7 +257,7 @@ export default async function HomePage() {
                           src={ensemble.thumbnail_url || "/placeholder.svg"}
                           alt={ensemble.title}
                           fill
-                          className="object-cover transition-transform group-hover:scale-105"
+                          className="object-cover transition-transform group-hover:scale-105 group-focus-within:scale-105"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -240,14 +267,14 @@ export default async function HomePage() {
                     </div>
                     <CardHeader>
                       <div className="flex items-center gap-2 mb-2">
-                        {ensemble.genre?.slice(0, 2).map((g: string) => (
+                        {ensemble.genre?.slice(0, 3).map((g: string) => (
                           <Badge key={g} variant="secondary">
                             {g}
                           </Badge>
                         ))}
                       </div>
-                      <CardTitle className="text-xl">{ensemble.title}</CardTitle>
-                      <CardDescription className="line-clamp-2">
+                      <CardTitle className="text-xl headline-serif">{ensemble.title}</CardTitle>
+                      <CardDescription className="line-clamp-3 text-muted-foreground">
                         {ensemble.synopsis_short || ensemble.description}
                       </CardDescription>
                     </CardHeader>
@@ -284,43 +311,32 @@ export default async function HomePage() {
 
               <div className="grid gap-6 md:grid-cols-2">
                 {upcomingShows.map((show) => (
-                  <Card key={show.id} className="flex flex-col sm:flex-row overflow-hidden">
-                    <div className="aspect-video sm:aspect-square sm:w-48 relative bg-muted shrink-0">
-                      {show.ensemble?.thumbnail_url ? (
-                        <Image
-                          src={show.ensemble.thumbnail_url || "/placeholder.svg"}
-                          alt={show.title || show.ensemble?.title || "Forestilling"}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Ticket className="h-12 w-12 text-muted-foreground/50" />
-                        </div>
-                      )}
+                  <article key={show.id} className="flex flex-col sm:flex-row overflow-hidden rounded-md border bg-card">
+                    <div className="flex items-center justify-center shrink-0 p-4 sm:p-0 sm:w-36 bg-muted/70">
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground">{new Date(show.show_datetime).toLocaleDateString('nb-NO', { month: 'short' })}</div>
+                        <div className="text-2xl font-semibold">{new Date(show.show_datetime).getDate()}</div>
+                      </div>
                     </div>
-                    <div className="flex flex-col flex-1 p-6">
+                    <div className="flex flex-col flex-1 p-4 sm:p-6">
+                      <h3 className="text-lg font-semibold headline-serif mb-1">{show.title || show.ensemble?.title}</h3>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                         <Calendar className="h-4 w-4" />
-                        {formatDate(show.show_datetime)}
+                        {formatDate(show.show_datetime)} · {show.venue?.name}, {show.venue?.city}
                       </div>
-                      <h3 className="text-xl font-semibold mb-2">{show.title || show.ensemble?.title}</h3>
                       {show.team && show.ensemble && (
                         <Badge variant="outline" className="w-fit mb-2">
                           {show.team === "yellow" ? show.ensemble.yellow_team_name : show.ensemble.blue_team_name}
                         </Badge>
                       )}
-                      <p className="text-muted-foreground mb-4 line-clamp-2">
-                        {show.venue?.name}, {show.venue?.city}
-                      </p>
                       <div className="mt-auto flex items-center justify-between">
                         <span className="text-lg font-semibold">Fra {formatPrice(show.base_price_nok)}</span>
-                        <Button asChild>
+                        <Button asChild className="btn-primary">
                           <Link href={`/bestill/${show.id}`}>Kjøp billetter</Link>
                         </Button>
                       </div>
                     </div>
-                  </Card>
+                  </article>
                 ))}
               </div>
             </div>
@@ -329,7 +345,7 @@ export default async function HomePage() {
 
         {/* All Ensembles Grid */}
         {allEnsembles.length > 0 && (
-          <section className="py-16 md:py-24">
+          <section className="py-16 md:py-24 bg-card">
             <div className="container px-4">
               <div className="flex items-center justify-between mb-8">
                 <div>
@@ -381,7 +397,7 @@ export default async function HomePage() {
 
         {/* Empty State - shows when no data available */}
         {allEnsembles.length === 0 && upcomingShows.length === 0 && (
-          <section className="py-24">
+          <section className="py-24 bg-background">
             <div className="container px-4 text-center">
               <Film className="h-24 w-24 mx-auto text-muted-foreground/50 mb-6" />
               <h2 className="text-2xl font-bold mb-4">Velkommen til Teateret!</h2>
@@ -422,7 +438,7 @@ export default async function HomePage() {
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Ticket className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Enkel bestilling</h3>
+                <h3 className="text-xl font-semibold mb-2 headline-serif">Enkel bestilling</h3>
                 <p className="text-muted-foreground">
                   Velg dine seter og betal trygt. QR-billetter sendes direkte til e-posten din.
                 </p>
@@ -432,7 +448,7 @@ export default async function HomePage() {
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Film className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Digitale opptak</h3>
+                <h3 className="text-xl font-semibold mb-2 headline-serif">Digitale opptak</h3>
                 <p className="text-muted-foreground">
                   Kunne ikke komme? Se forestillingen hjemmefra med våre profesjonelle opptak.
                 </p>
@@ -442,7 +458,7 @@ export default async function HomePage() {
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Users className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">To lag</h3>
+                <h3 className="text-xl font-semibold mb-2 headline-serif">To lag</h3>
                 <p className="text-muted-foreground">
                   Hver produksjon har to unike besetninger. Opplev begge versjonene!
                 </p>

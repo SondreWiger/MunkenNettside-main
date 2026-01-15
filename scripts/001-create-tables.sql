@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   phone TEXT,
-  role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'admin')),
+  role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'admin', 'superadmin')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

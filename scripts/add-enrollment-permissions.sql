@@ -53,7 +53,7 @@ CREATE POLICY "Admins can manage enrollment requests" ON public.enrollment_reque
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM public.users 
-      WHERE id = auth.uid() AND role = 'admin'
+  WHERE id = auth.uid() AND (role = 'admin' OR role = 'superadmin')
     )
   );
 

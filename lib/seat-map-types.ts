@@ -228,12 +228,33 @@ export function createDefaultConfig(): SeatMapConfig {
         shape: 'rectangle'
       }
     ],
-    sections: [
-      { id: 'main', name: 'Sal', color: '#22C55E', priceMultiplier: 1.0 },
-      { id: 'premium', name: 'Premium', color: '#A855F7', priceMultiplier: 1.5 },
-      { id: 'balcony', name: 'Balkong', color: '#3B82F6', priceMultiplier: 0.8 },
-    ]
+    sections: getDefaultSections(),
   }
+}
+
+export function getDefaultSections(): SectionConfig[] {
+  // Try to read CSS variables for theme-aware defaults. Fall back to hard-coded colors.
+  try {
+    if (typeof window !== 'undefined') {
+      const style = getComputedStyle(document.documentElement)
+      const seatAvailable = style.getPropertyValue('--seat-available')?.trim() || '#22C55E'
+      const seatSelected = style.getPropertyValue('--seat-selected')?.trim() || '#A855F7'
+      const balcony = style.getPropertyValue('--seat-balcony')?.trim() || '#3B82F6'
+      return [
+        { id: 'main', name: 'Sal', color: seatAvailable, priceMultiplier: 1.0 },
+        { id: 'premium', name: 'Premium', color: seatSelected, priceMultiplier: 1.5 },
+        { id: 'balcony', name: 'Balkong', color: balcony, priceMultiplier: 0.8 },
+      ]
+    }
+  } catch (e) {
+    // ignore and fall back
+  }
+
+  return [
+    { id: 'main', name: 'Sal', color: '#22C55E', priceMultiplier: 1.0 },
+    { id: 'premium', name: 'Premium', color: '#A855F7', priceMultiplier: 1.5 },
+    { id: 'balcony', name: 'Balkong', color: '#3B82F6', priceMultiplier: 0.8 },
+  ]
 }
 
 export function generateId(prefix: string): string {

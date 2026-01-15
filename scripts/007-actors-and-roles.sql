@@ -53,7 +53,7 @@ CREATE POLICY "Admins can manage actors" ON public.actors
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM public.users 
-      WHERE id = auth.uid() AND role = 'admin'
+  WHERE id = auth.uid() AND (role = 'admin' OR role = 'superadmin')
     )
   );
 
@@ -67,7 +67,7 @@ CREATE POLICY "Admins can manage roles" ON public.roles
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM public.users 
-      WHERE id = auth.uid() AND role = 'admin'
+  WHERE id = auth.uid() AND (role = 'admin' OR role = 'superadmin')
     )
   );
 

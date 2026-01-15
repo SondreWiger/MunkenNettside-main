@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const body = await request.json()
   const { code } = body
   if (!code) return NextResponse.json({ error: 'code is required' }, { status: 400 })
-  // Basic format check to avoid brute-force or malformed inputs
+  // Basic format check to avoid brute-force or malformed inputs (only numeric 6-digit codes supported)
   if (typeof code !== 'string' || !/^[0-9]{6}$/.test(code)) return NextResponse.json({ error: 'Invalid code format' }, { status: 400 })
 
     const supabase = await getSupabaseServerClient()
@@ -62,10 +62,12 @@ export async function POST(request: Request) {
 
     const verification = verifications[0]
 
+      // QR-based alphanumeric codes are deprecated — only numeric codes are supported now.
+
     // Mark verification as used and mark user as verified
     const { error: markError } = await supabase
       .from('admin_verifications')
-      .update({ used: true })
+      .update({ used: true, verified_at: new Date().toISOString() })
       .eq('id', verification.id)
 
     if (markError) {

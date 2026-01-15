@@ -1,4 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
+
+interface Seat {
+  id?: string
+  uuid?: string
+  section: string
+  row: string | number
+  col?: number
+  number?: number
+  status?: string
+  reserved_until?: string
+}
 import { getSupabaseAdminClient, getSupabaseServerClient } from "@/lib/supabase/server"
 import { generateBookingReference, createQRCodeData } from "@/lib/utils/booking"
 import { sendTicketEmail } from "@/lib/email/send-ticket-email"
@@ -7,8 +18,8 @@ export async function POST(request: NextRequest) {
   console.log("[v0] ========== BOOKING CREATE START ==========")
 
   try {
-    const body = await request.json()
-    const { showId, seats, customerName, customerEmail, customerPhone, specialRequests, totalAmount, discountCode } = body
+  const body = await request.json()
+  const { showId, seats, customerName, customerEmail, customerPhone, specialRequests, totalAmount, discountCode, holdToken } = body
 
     console.log("[v0] Booking request received:")
     console.log("[v0]   showId:", showId)
@@ -64,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[v0] Show found:", show.id)
-    console.log("[v0] Seats to book:", seats.map((s: any) => ({ row: s.row, col: s.col, section: s.section })))
+  console.log("[v0] Seats to book:", seats.map((s: Seat) => ({ row: s.row, col: s.col, section: s.section })))
 
   // Check that we got all requested seats (validation already done in reserve API)
   // Seats are already validated - no need to check status
@@ -92,12 +103,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Create booking without QR data first (we'll add it after we have the booking ID)
+      // If a holdToken is provided, validate it and mark it inactive to prevent reuse
+      if (holdToken) {
+        try {
+          const { data: hold } = await supabase.from('seat_holds').select('*').eq('hold_token', holdToken).maybeSingle()
+          if (!hold || !hold.active || new Date(hold.expires_at) <= new Date() || String(hold.show_id) !== String(showId)) {
+            return NextResponse.json({ error: 'Ugyldig eller utløpt hold' }, { status: 400 })
+          }
+
+          // Ensure seats match between hold and requested seats
+          const holdSeats: Seat[] = hold.seats || []
+          const mismatch = (seats || []).some((req: Seat) => !holdSeats.some((h: Seat) => h.section === req.section && String(h.row) === String(req.row) && Number(h.number) === Number(req.number)))
+          if (mismatch) {
+            return NextResponse.json({ error: 'Hold stemmer ikke med valgte seter' }, { status: 400 })
+          }
+
+          // Deactivate hold now (prevent reuse). If booking fails later we may leave it inactive; acceptable for now.
+          await supabase.from('seat_holds').update({ active: false }).eq('hold_token', holdToken)
+        } catch (err) {
+          console.error('[v0] Error validating hold token:', err)
+          return NextResponse.json({ error: 'Kunne ikke validere hold token' }, { status: 500 })
+        }
+      }
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
         user_id: user.id,
         show_id: showId,
-        seat_ids: seats as any, // Pass seats array directly to JSONB column
+  seat_ids: seats as Seat[], // Pass seats array directly to JSONB column
         total_amount_nok: totalAmount,
         booking_reference: bookingReference,
         qr_code_data: null, // Will be set after insert
@@ -140,7 +173,11 @@ export async function POST(request: NextRequest) {
       showTitle,
       show.show_datetime,
       customerName,
-      seats.map((s: any) => ({ section: s.section, row: String.fromCharCode(65 + s.row), number: s.col + 1 })),
+      (seats as Seat[]).map((s) => ({
+        section: s.section,
+        row: typeof s.row === 'number' ? String.fromCharCode(65 + s.row) : String(s.row),
+        number: s.number != null ? Number(s.number) : (s.col != null ? s.col + 1 : -1),
+      })),
     )
 
     const qrCodeDataString = JSON.stringify(qrData)
@@ -153,7 +190,7 @@ export async function POST(request: NextRequest) {
     // Seats payload may contain either seat IDs or positional objects; handle both.
     try {
       // Extract IDs if provided
-      const seatIdsFromPayload = (seats || []).filter((s: any) => s && (s.id || s.uuid)).map((s: any) => s.id || s.uuid)
+  const seatIdsFromPayload = (seats || []).filter((s: Seat) => s && (s.id || s.uuid)).map((s: Seat) => s.id || s.uuid)
 
       if (seatIdsFromPayload.length > 0) {
         const { error: updateSeatsError } = await supabase
@@ -170,7 +207,7 @@ export async function POST(request: NextRequest) {
       }
 
       // For seats that don't have explicit ids, try to update by position (section/row/number)
-      const seatsByPosition = (seats || []).filter((s: any) => s && !s.id && s.section && (s.row != null) && (s.number != null))
+  const seatsByPosition = (seats || []).filter((s: Seat) => s && !s.id && s.section && (s.row != null) && (s.number != null))
       for (const s of seatsByPosition) {
         try {
           const { error: posUpdErr } = await supabase
@@ -214,10 +251,10 @@ export async function POST(request: NextRequest) {
         showDatetime: show.show_datetime,
         venueName: show.venue?.name || "Ukjent lokale",
         venueAddress: show.venue ? `${show.venue.address}, ${show.venue.postal_code} ${show.venue.city}` : "",
-        seats: seats.map((s: any) => ({
+        seats: (seats as Seat[]).map((s) => ({
           section: s.section,
-          row: String.fromCharCode(65 + s.row),
-          number: s.col + 1,
+          row: typeof s.row === 'number' ? String.fromCharCode(65 + s.row) : String(s.row),
+          number: s.number != null ? Number(s.number) : (s.col != null ? s.col + 1 : -1),
           price_nok: 0, // Prices handled at checkout level, not per-seat
         })),
         totalAmount,

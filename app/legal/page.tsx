@@ -11,28 +11,34 @@ const legalDocs = [
 
 export default function LegalDashboard() {
 	return (
-		<div className="flex flex-col min-h-screen bg-background">
+		<div className="flex flex-col min-h-screen bg-[var(--bg)] text-[var(--fg)]">
 			<Header />
-			<main className="flex-1 flex flex-col items-center justify-center py-16 px-4">
-				<div className="w-full max-w-2xl bg-white rounded-xl shadow p-8 border border-muted">
-					<h1 className="text-3xl font-bold mb-8 text-center">
-						Juridiske dokumenter
-					</h1>
-					<ul className="space-y-4">
+
+			<main className="flex-1 flex flex-col items-center py-20 px-4">
+				<div className="w-full max-w-3xl bg-[var(--card)] rounded-xl shadow-soft p-10 border border-[var(--muted)]">
+					<h1 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-center">Juridiske dokumenter</h1>
+					<p className="text-[var(--muted)] text-center mb-6">Vennligst les våre vilkår og personvernregler før du bruker tjenestene våre.</p>
+
+					<ul className="grid gap-3">
 						{legalDocs.map((doc) => (
 							<li key={doc.slug}>
 								<Link
 									href={`/legal/${doc.slug}`}
-									className="block text-lg font-medium text-blue-600 hover:underline px-4 py-3 rounded transition-colors hover:bg-muted"
+									className="block px-4 py-3 rounded-md hover:bg-[var(--bg)] transition-colors text-[var(--muted)] font-medium focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/20"
+									aria-label={`Åpne dokument: ${doc.title}`}
 								>
-									{doc.title}
+									<div className="flex items-center justify-between">
+										<span>{doc.title}</span>
+										<span className="text-sm text-[var(--muted-foreground)]">Les mer</span>
+									</div>
 								</Link>
 							</li>
 						))}
 					</ul>
 				</div>
 			</main>
+
 			<Footer />
 		</div>
-	);
+	)
 }

@@ -42,6 +42,9 @@ async function getEnsembleData(slug: string) {
     `)
     .eq("ensemble_id", ensemble.id)
     .in("status", ["scheduled", "on_sale"])
+  // Exclude kurs sessions and internal practice sessions from ensemble public lists
+  .neq('type', 'kurs_session')
+  .eq('is_session', false)
     .gte("show_datetime", new Date().toISOString())
     .order("show_datetime", { ascending: true })
 
@@ -407,7 +410,11 @@ export default async function EnsemblePage({ params }: PageProps) {
                             </div>
                             
                             {/* Action Button */}
-                            {isSoldOut ? (
+                            {show.is_session || show.type === 'kurs_session' ? (
+                              <Button asChild className="w-full bg-secondary text-[var(--fg)]">
+                                <Link href={`/ovinger/${show.id}`}>Se øving</Link>
+                              </Button>
+                            ) : isSoldOut ? (
                               <Button disabled className="w-full bg-gray-600 text-gray-300 cursor-not-allowed">
                                 <Users className="h-4 w-4 mr-2" />
                                 Utsolgt

@@ -61,6 +61,7 @@ export default function EditShowPage() {
   const [kurs, setKurs] = useState<Kurs[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
   const [showType, setShowType] = useState<'ensemble' | 'kurs'>('ensemble')
+  const [isSession, setIsSession] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -83,7 +84,8 @@ export default function EditShowPage() {
       return
     }
 
-    setShow(showRes.data)
+  setShow(showRes.data)
+  setIsSession(Boolean(showRes.data?.is_session))
     setEnsembles(ensemblesRes.data || [])
     setKurs(kursRes.data || [])
     setVenues(venuesRes.data || [])
@@ -108,7 +110,7 @@ export default function EditShowPage() {
       console.error("[v0] Save error:", error.message)
       toast.error("Kunne ikke lagre: " + error.message)
     } else {
-      toast.success("Forestilling lagret!")
+      toast.success(`${isSession ? 'Øving' : 'Forestilling'} lagret!`)
     }
     setSaving(false)
   }
@@ -138,7 +140,7 @@ export default function EditShowPage() {
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">Rediger forestilling</h1>
+          <h1 className="text-3xl font-bold">Rediger {isSession ? 'øving' : 'forestilling'}</h1>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
@@ -148,7 +150,7 @@ export default function EditShowPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Forestillingsdetaljer</CardTitle>
+          <CardTitle>{isSession ? 'Øvingsdetaljer' : 'Forestillingsdetaljer'}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -254,7 +256,7 @@ export default function EditShowPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Forestillingsdato og -tid</Label>
+              <Label>{isSession ? 'Øvingsdato og -tid' : 'Forestillingsdato og -tid'}</Label>
               <Input
                 type="datetime-local"
                 value={show.show_datetime ? show.show_datetime.slice(0, 16) : ""}

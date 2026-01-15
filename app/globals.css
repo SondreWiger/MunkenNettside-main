@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@300;600;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../styles/design-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -86,44 +88,47 @@
 }
 
 @theme inline {
-  --font-sans: "Inter", "Inter Fallback", system-ui, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Fallback", monospace;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  /* Use the design tokens defined in styles/design-tokens.css */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-card: var(--color-foggy-white);
+  --color-card-foreground: var(--color-stage-black);
+  --color-popover: var(--color-foggy-white);
+  --color-popover-foreground: var(--color-stage-black);
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-secondary: var(--color-accent);
+  --color-secondary-foreground: var(--color-muted-foreground);
+  --color-muted: var(--color-muted);
+  --color-muted-foreground: var(--color-muted-foreground);
+  --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-spotlight-warm);
+  --color-destructive: var(--color-destructive);
+  --color-destructive-foreground: var(--color-spotlight-warm);
+  --color-border: var(--color-border);
+  --color-input: rgba(255,255,255,0.04);
+  --color-ring: var(--focus-ring);
+  --color-chart-1: var(--color-accent);
+  --color-chart-2: #6ea3b0;
+  --color-chart-3: #8fa3b8;
+  --color-chart-4: #a6c9b8;
+  --color-chart-5: #d6a77a;
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: calc(var(--radius-lg) + 4px);
+  --color-sidebar: var(--color-foggy-white);
+  --color-sidebar-foreground: var(--color-stage-black);
+  --color-sidebar-primary: var(--color-primary);
+  --color-sidebar-primary-foreground: var(--color-primary-foreground);
+  --color-sidebar-accent: var(--color-accent);
+  --color-sidebar-accent-foreground: var(--color-spotlight-warm);
+  --color-sidebar-border: var(--color-border);
+  --color-sidebar-ring: var(--color-ring);
 }
 
 @layer base {
@@ -132,6 +137,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Use the tokenized sans font for body text */
+    font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* WCAG AAA: Minimum touch target size */
@@ -177,3 +186,76 @@
 .skip-link:focus {
   top: 0;
 }
+
+/* Headings use the display font (Playfair) when available */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display, Georgia, 'Times New Roman', serif);
+  letter-spacing: -0.02em;
+}
+
+/* Film grain utility (use class 'film-grain' on containers) */
+.film-grain { position: relative; }
+.film-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' stitchTiles='stitch' /></filter><rect width='100%' height='100%' filter='url(%23f)' opacity='0.03' fill='black'/></svg>");
+  opacity: calc(var(--film-grain-opacity) * 1.4);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* Hero specific helpers */
+.hero-title {
+  /* softer, more readable shadow for large display type */
+  text-shadow: 0 4px 12px rgba(0,0,0,0.45);
+}
+.hero-subtitle { text-shadow: 0 2px 10px rgba(0,0,0,0.32); }
+.hero-ctas > * { margin-right: 0.75rem; }
+
+/* Primary and secondary CTA tokens for quick usage */
+.btn-primary {
+  background: var(--color-foreground, var(--foreground));
+  color: var(--color-card, var(--card));
+  padding: 12px 24px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: var(--shadow-pop); }
+.btn-primary:focus { box-shadow: var(--shadow-focus); outline: none; }
+.btn-secondary {
+  background: transparent;
+  color: var(--color-foreground, var(--foreground));
+  padding: 12px 22px;
+  border: 1px solid rgba(11,11,11,0.08);
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-secondary:hover { transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+.btn-secondary:focus { box-shadow: 0 0 0 4px rgba(217,169,58,0.12); outline: none; }
+
+/* Hero layout helpers */
+.hero-content {
+  max-width: 44rem; /* keep lines comfortable for reading */
+}
+.hero-image { border-radius: 12px; box-shadow: var(--shadow-pop); overflow: hidden; }
+
+/* Development debug overrides */
+/* (dev overrides removed) */
+
+/* Utility for underlined hover effect used in hero newsletter link */
+.underline-hover { text-decoration: underline 0 rgba(255,255,255,0); transition: text-decoration-color .18s ease; }
+.underline-hover:hover { text-decoration-color: rgba(255,255,255,0.85); }
+
+/* Small utility classes */
+.shadow-soft { box-shadow: var(--shadow-soft); }
+.shadow-pop { box-shadow: var(--shadow-pop); }
+.headline-serif { font-family: var(--font-display, Georgia, 'Times New Roman', serif); }
+

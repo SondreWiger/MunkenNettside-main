@@ -767,7 +767,7 @@ export function SeatMapEditor({ initialConfig, onSave, venueId }: SeatMapEditorP
 
 */
 
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -979,12 +979,23 @@ export function SeatMapEditor({ initialConfig, onSave, venueId }: SeatMapEditorP
   const [rows, setRows] = useState(DEFAULT_ROWS);
   const [cols, setCols] = useState(DEFAULT_COLS);
   const [cells, setCells] = useState<CellState[][]>(() => createEmptyGrid(DEFAULT_ROWS, DEFAULT_COLS));
+  const autosaveTimeout = useRef<number | null>(null);
+  const [autosaveTs, setAutosaveTs] = useState<number | null>(null);
+  const [hasAutosave, setHasAutosave] = useState(false);
+  const autosaveKey = `seatmap-autosave-${venueId ?? "local"}`;
 
   useEffect(() => {
     const normalized = normalizeGrid(initialConfig);
     setRows(normalized.rows);
     setCols(normalized.cols);
     setCells(normalized.cells);
+    // Detect if an autosave exists for this venue
+    try {
+      const raw = localStorage.getItem(autosaveKey);
+      if (raw) setHasAutosave(true);
+    } catch (e) {
+      // ignore storage errors
+    }
   }, [initialConfig]);
 
   const updateGridDimensions = useCallback((nextRows: number, nextCols: number) => {
@@ -1010,6 +1021,29 @@ export function SeatMapEditor({ initialConfig, onSave, venueId }: SeatMapEditorP
     });
   }, []);
 
+  // autosave to localStorage (debounced)
+  useEffect(() => {
+    try {
+      if (autosaveTimeout.current) window.clearTimeout(autosaveTimeout.current);
+      // debounce 800ms
+      autosaveTimeout.current = window.setTimeout(() => {
+        try {
+          const payload = { rows, cols, cells, ts: Date.now() };
+          localStorage.setItem(autosaveKey, JSON.stringify(payload));
+          setAutosaveTs(payload.ts);
+          setHasAutosave(true);
+        } catch (err) {
+          // ignore
+        }
+      }, 800) as unknown as number;
+    } catch (err) {
+      // ignore
+    }
+    return () => {
+      if (autosaveTimeout.current) window.clearTimeout(autosaveTimeout.current);
+    };
+  }, [rows, cols, cells, autosaveKey]);
+
   const handleCellRightClick = useCallback((event: MouseEvent<HTMLButtonElement>, row: number, col: number) => {
     event.preventDefault();
     setCells((prev) => {
@@ -1019,6 +1053,22 @@ export function SeatMapEditor({ initialConfig, onSave, venueId }: SeatMapEditorP
       return next;
     });
   }, []);
+
+  const restoreAutosave = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(autosaveKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { rows: number; cols: number; cells: CellState[][]; ts?: number };
+      if (parsed && Array.isArray(parsed.cells)) {
+        setRows(parsed.rows ?? parsed.cells.length ?? DEFAULT_ROWS);
+        setCols(parsed.cols ?? (parsed.cells[0]?.length ?? DEFAULT_COLS));
+        setCells(parsed.cells);
+        setAutosaveTs(parsed.ts ?? Date.now());
+      }
+    } catch (err) {
+      // ignore parse errors
+    }
+  }, [autosaveKey]);
 
   const handleClear = useCallback(() => {
     setCells(createEmptyGrid(rows, cols));
@@ -1084,6 +1134,9 @@ export function SeatMapEditor({ initialConfig, onSave, venueId }: SeatMapEditorP
           <div 
             onContextMenu={(event) => event.preventDefault()} 
             className="inline-grid gap-1"
+            role="grid"
+            aria-rowcount={rows}
+            aria-colcount={cols}
             style={{
               gridTemplateColumns: `2rem repeat(${cols}, 2rem) 2rem`,
               gridTemplateRows: `1.5rem repeat(${rows}, 2rem) 1.5rem`
@@ -1129,6 +1182,16 @@ export function SeatMapEditor({ initialConfig, onSave, venueId }: SeatMapEditorP
                     <button
                       key={`cell-${rowIndex}-${colIndex}`}
                       type="button"
+                      role="gridcell"
+                      aria-selected={state !== "empty"}
+                      aria-label={`Rad ${label} Seter ${seatNumber} - ${state}`}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleCellClick(rowIndex, colIndex);
+                        }
+                      }}
                       onClick={() => handleCellClick(rowIndex, colIndex)}
                       onContextMenu={(event) => handleCellRightClick(event, rowIndex, colIndex)}
                       className={cn(
@@ -1195,10 +1258,27 @@ export function SeatMapEditor({ initialConfig, onSave, venueId }: SeatMapEditorP
           </div>
         </div>
 
-        <Button type="button" className="w-full gap-2" onClick={handleSave}>
-          <Save className="h-4 w-4" />
-          Lagre setekart
-        </Button>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div>
+              {autosaveTs ? (
+                <span>Autosaved {Math.round(((Date.now() - autosaveTs) / 1000))}s ago</span>
+              ) : (
+                <span>No autosave</span>
+              )}
+            </div>
+            {hasAutosave && (
+              <button type="button" onClick={restoreAutosave} className="text-xs text-primary underline">
+                Restore
+              </button>
+            )}
+          </div>
+
+          <Button type="button" className="w-full gap-2" onClick={handleSave}>
+            <Save className="h-4 w-4" />
+            Lagre setekart
+          </Button>
+        </div>
       </div>
     </div>
   );

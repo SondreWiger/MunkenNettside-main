@@ -65,3 +65,49 @@ export async function sendAdminPromotionEmail(data: AdminPromotionData): Promise
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
+
+interface SendAdminQRCodeData {
+  toEmail: string
+  toName?: string
+  qrDataUrl: string
+  expiresAt: string
+}
+
+export async function sendAdminQRCodeEmail(data: SendAdminQRCodeData): Promise<{ success: boolean; error?: string }> {
+  console.log('[v0] sendAdminQRCodeEmail called for:', data.toEmail)
+
+  const fromEmail = process.env.BREVO_FROM_EMAIL || 'noreply@teateret.no'
+  const fromName = process.env.BREVO_FROM_NAME || 'Teateret'
+
+  if (!process.env.SMTP_SERVER || !process.env.SMTP_LOGIN || !process.env.SMTP_PASSWORD) {
+    console.error('[v0] ERROR: SMTP credentials not configured!')
+    return { success: false, error: 'E-post er ikke konfigurert (mangler SMTP credentials)' }
+  }
+
+  const html = `
+    <div style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;">
+      <h2>Administrator QR-verifisering</h2>
+      <p>Hei ${data.toName || ''},</p>
+      <p>En QR-kode er generert for å autorisere den nye administrator-kontoen. DENNE QR-KODEN VISER IKKE PÅ NETTSTEDET - den sendes kun via e-post. Scann koden med brukernes QR-scanner ved første admin-innlogging.</p>
+      <p>QR-koden utløper ${new Date(data.expiresAt).toLocaleString('nb-NO')}.</p>
+      <img src="${data.qrDataUrl}" alt="QR code" style="max-width:100%;height:auto;border:1px solid #eee;padding:8px;margin-top:8px;" />
+      <p style="margin-top:8px">MERK: Del aldri denne QR-koden offentlig. Hvis du mener denne e-posten ble sendt ved en feil, kontakt support umiddelbart.</p>
+    </div>
+  `
+
+  try {
+    const transporter = getTransporter()
+    const info = await transporter.sendMail({
+      from: `${fromName} <${fromEmail}>`,
+      to: data.toEmail,
+      subject: `Administrator QR-verifisering`,
+      html,
+    })
+
+    console.log('[v0] Admin QR email sent. MessageId:', info.messageId)
+    return { success: true }
+  } catch (error) {
+    console.error('[v0] Failed to send admin QR email:', error)
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}

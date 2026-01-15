@@ -26,7 +26,7 @@ async function getUserData() {
 
   if (!user) return null
 
-  console.log("DEBUG - Current user ID:", user.id)
+  // Removed debug logging for privacy
 
   const { data: profile } = await supabase.from("users").select("*").eq("id", user.id).single()
 
@@ -82,7 +82,7 @@ async function getUserData() {
     `)
     .eq("user_id", user.id)
   
-  console.log("DEBUG - ALL enrollments:", { allEnrollments, allError })
+  // console.log("DEBUG - ALL enrollments:", { allEnrollments, allError })
 
   const { data: ensembleEnrollments, error: ensembleError } = await supabase
     .from("ensemble_enrollments")
@@ -99,7 +99,7 @@ async function getUserData() {
     .in("status", ["yellow", "blue"])
     .order("enrolled_at", { ascending: false })
 
-  console.log("Ensemble enrollments query result (filtered):", { ensembleEnrollments, ensembleError })
+  // console.log("Ensemble enrollments query result (filtered):", { ensembleEnrollments, ensembleError })
 
   // Fetch ensemble details for each enrollment
   let ensembleEnrollmentsWithDetails: any[] = []
@@ -114,9 +114,88 @@ async function getUserData() {
       ...enrollment,
       ensemble: ensembles?.find((e) => e.id === enrollment.ensemble_id),
     }))
-    console.log("Processed ensemble enrollments:", ensembleEnrollmentsWithDetails)
+  // console.log("Processed ensemble enrollments:", ensembleEnrollmentsWithDetails)
   } else {
-    console.log("No ensemble enrollments found for user", user.id)
+  // console.log("No ensemble enrollments found for user", user.id)
+  }
+
+  // Attempt to resolve actor profile for this user (either linked via users.actor_id or by user_id)
+  let actor = null
+  let actorSessions: any[] = []
+  try {
+    // First try profile.actor_id if available
+    if ((profile as any)?.actor_id) {
+      const { data: actorData } = await supabase.from('actors').select('*').eq('id', (profile as any).actor_id).single()
+      actor = actorData || null
+    }
+
+    // Fallback: find actor by user_id
+    if (!actor) {
+      const { data: actorData } = await supabase.from('actors').select('*').eq('user_id', user.id).single()
+      actor = actorData || null
+    }
+
+    if (actor) {
+      // Find roles where this actor is assigned
+      const { data: roles } = await supabase
+        .from('roles')
+        .select('id, ensemble_id')
+        .or(`yellow_actor_id.eq.${actor.id},blue_actor_id.eq.${actor.id}`)
+
+      const ensembleIds = (roles || []).map((r: any) => r.ensemble_id).filter(Boolean)
+
+      if (ensembleIds.length > 0) {
+        const { data: shows } = await supabase
+          .from('shows')
+          .select('*, venue:venues(*)')
+          .in('ensemble_id', ensembleIds)
+          .gte('show_datetime', new Date().toISOString())
+          .order('show_datetime', { ascending: true })
+
+        actorSessions = actorSessions.concat(shows || [])
+      }
+
+      // Include kurs sessions where the kurs is explicitly linked to this actor
+      const { data: linkedKurs } = await supabase
+        .from('kurs')
+        .select('id')
+        .eq('instructor_actor_id', actor.id)
+
+      if (linkedKurs && linkedKurs.length > 0) {
+        const kursIds = linkedKurs.map((k: any) => k.id)
+        const { data: kursShows } = await supabase
+          .from('shows')
+          .select('*, venue:venues(*)')
+          .in('kurs_id', kursIds)
+          .eq('type', 'kurs_session')
+          .gte('show_datetime', new Date().toISOString())
+          .order('show_datetime', { ascending: true })
+
+        actorSessions = actorSessions.concat(kursShows || [])
+      }
+
+      // Also include kurs sessions for kurs the user is enrolled in
+      const { data: myEnrollments } = await supabase
+        .from('kurs_enrollments')
+        .select('kurs_id')
+        .eq('user_id', user.id)
+        .eq('status', 'confirmed')
+
+      if (myEnrollments && myEnrollments.length > 0) {
+        const myKursIds = myEnrollments.map((e: any) => e.kurs_id)
+        const { data: enrollmentKursShows } = await supabase
+          .from('shows')
+          .select('*, venue:venues(*)')
+          .in('kurs_id', myKursIds)
+          .eq('type', 'kurs_session')
+          .gte('show_datetime', new Date().toISOString())
+          .order('show_datetime', { ascending: true })
+
+        actorSessions = actorSessions.concat(enrollmentKursShows || [])
+      }
+    }
+  } catch (err) {
+    console.error('Error resolving actor sessions:', err)
   }
 
   return {
@@ -126,6 +205,8 @@ async function getUserData() {
     bookings: bookings || [],
     enrollments: enrollments || [],
     ensembleEnrollments: ensembleEnrollmentsWithDetails,
+    actor,
+    actorSessions,
   }
 }
 
@@ -136,30 +217,36 @@ export default async function UserProfilePage() {
     redirect("/logg-inn?redirect=/dashboard")
   }
 
-  const { user, profile, purchases, bookings, enrollments, ensembleEnrollments } = data
+  const { user, profile, purchases, bookings, enrollments, ensembleEnrollments, actor } = data
 
   const confirmedBookings = bookings.filter((b) => b.status === "confirmed")
   const usedBookings = bookings.filter((b) => b.status === "used")
   const completedPurchases = purchases.filter((p) => p.status === "completed")
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-12">
-          <div className="container px-4">
+        <section className="py-12 bg-[var(--card)] border-b border-[var(--muted)]">
+          <div className="max-w-4xl mx-auto px-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold">
+                <h1 className="text-3xl md:text-4xl font-serif font-bold">
                   Hallo, {profile?.full_name?.split(" ")[0] || "bruker"}! 👋
                 </h1>
-                <p className="mt-2 text-primary-foreground/90 text-lg">
-                  Velkommen til din personlige dashboard
-                </p>
+                <p className="mt-2 text-[var(--muted)] text-lg">Velkommen til din personlige dashboard</p>
               </div>
               <div className="flex gap-3">
+                {actor && (
+                  <Button asChild variant="default" size="lg">
+                    <Link href="/skuespiller/me" className="gap-2">
+                      <BookOpen className="h-5 w-5" />
+                      Skuespillerdashboard
+                    </Link>
+                  </Button>
+                )}
                 <Button asChild variant="secondary" size="lg">
                   <Link href="/dashboard/innstillinger" className="gap-2">
                     <Settings className="h-5 w-5" />
@@ -172,39 +259,39 @@ export default async function UserProfilePage() {
         </section>
 
         {/* Quick Stats */}
-        <section className="py-8 bg-muted/50 border-b">
-          <div className="container px-4">
-            <div className="grid gap-4 md:grid-cols-5">
-              <Card>
+        <section className="py-8 bg-[var(--bg)] border-b">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="grid gap-6 md:grid-cols-5">
+              <Card className="shadow-soft">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Ensembler</p>
-                      <p className="text-2xl font-bold">{ensembleEnrollments.length}</p>
+                      <p className="text-sm text-[var(--muted)]">Ensembler</p>
+                      <p className="text-2xl font-serif font-bold">{ensembleEnrollments.length}</p>
                     </div>
-                    <User className="h-8 w-8 text-primary opacity-50" />
+                    <User className="h-8 w-8 text-[var(--accent)] opacity-90" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="shadow-soft">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Aktive billetter</p>
-                      <p className="text-2xl font-bold">{confirmedBookings.length}</p>
+                      <p className="text-sm text-[var(--muted)]">Aktive billetter</p>
+                      <p className="text-2xl font-serif font-bold">{confirmedBookings.length}</p>
                     </div>
-                    <Ticket className="h-8 w-8 text-primary opacity-50" />
+                    <Ticket className="h-8 w-8 text-[var(--accent)] opacity-90" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="shadow-soft">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Brukte billetter</p>
-                      <p className="text-2xl font-bold">{usedBookings.length}</p>
+                      <p className="text-sm text-[var(--muted)]">Brukte billetter</p>
+                      <p className="text-2xl font-serif font-bold">{usedBookings.length}</p>
                     </div>
                     <Badge variant="outline" className="h-8 w-8 flex items-center justify-center">
                       ✓
@@ -213,26 +300,26 @@ export default async function UserProfilePage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="shadow-soft">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Kjøpte opptak</p>
-                      <p className="text-2xl font-bold">{completedPurchases.length}</p>
+                      <p className="text-sm text-[var(--muted)]">Kjøpte opptak</p>
+                      <p className="text-2xl font-serif font-bold">{completedPurchases.length}</p>
                     </div>
-                    <Film className="h-8 w-8 text-primary opacity-50" />
+                    <Film className="h-8 w-8 text-[var(--accent)] opacity-90" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="shadow-soft">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Kurs påmeldt</p>
-                      <p className="text-2xl font-bold">{enrollments.length}</p>
+                      <p className="text-sm text-[var(--muted)]">Kurs påmeldt</p>
+                      <p className="text-2xl font-serif font-bold">{enrollments.length}</p>
                     </div>
-                    <BookOpen className="h-8 w-8 text-primary opacity-50" />
+                    <BookOpen className="h-8 w-8 text-[var(--accent)] opacity-90" />
                   </div>
                 </CardContent>
               </Card>
@@ -244,7 +331,7 @@ export default async function UserProfilePage() {
         <section className="py-12">
           <div className="container px-4">
             <Tabs defaultValue="bookings" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="bookings" className="gap-2">
                   <Ticket className="h-4 w-4" />
                   <span className="hidden sm:inline">Billetter</span>
@@ -256,6 +343,10 @@ export default async function UserProfilePage() {
                 <TabsTrigger value="purchases" className="gap-2">
                   <Film className="h-4 w-4" />
                   <span className="hidden sm:inline">Opptak</span>
+                </TabsTrigger>
+                <TabsTrigger value="actor" className="gap-2">
+                  <User className="h-4 w-4" />
+                  <span className="hidden sm:inline">Skuespiller</span>
                 </TabsTrigger>
                 <TabsTrigger value="profile" className="gap-2">
                   <User className="h-4 w-4" />
@@ -498,6 +589,37 @@ export default async function UserProfilePage() {
               </TabsContent>
 
               {/* Profile Tab */}
+              <TabsContent value="actor" className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold mb-4">Øvinger for skuespiller</h2>
+
+                  {/* Render actor sessions if present */}
+                  {data.actor && data.actorSessions && data.actorSessions.length > 0 ? (
+                    <div className="space-y-4">
+                      {data.actorSessions.map((s: any) => (
+                        <Card key={s.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between p-4">
+                            <div>
+                              <p className="font-semibold">{s.title || 'Øving'}</p>
+                              <p className="text-sm text-muted-foreground">{formatDate(s.show_datetime)}</p>
+                              <p className="text-sm text-muted-foreground">{s.venue?.name || ''}</p>
+                            </div>
+                            <div>
+                              <Badge variant="outline">{s.type}</Badge>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent>
+                        <p className="text-muted-foreground">Ingen øvinger funnet for skuespilleren</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
               <TabsContent value="profile" className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Profilinformasjon</h2>

@@ -28,6 +28,9 @@ async function getShows() {
       venue:venues(*)
     `)
     .in("status", ["scheduled", "on_sale"])
+  // Exclude kurs sessions (course practice sessions) and internal practice sessions
+  .neq('source_type', 'kurs')
+  .eq('is_session', false)
     .gte("show_datetime", new Date().toISOString())
     .order("show_datetime", { ascending: true })
 
@@ -105,6 +108,184 @@ export default async function ShowsPage() {
     }
   }
 
+  // Prepare pre-rendered ensemble sections to simplify JSX and avoid nested JSX parsing issues
+  const inProductionItems = Array.from(inProductionEnsembles.values()).map(({ ensemble, shows: ensembleShows }) => {
+    return (
+      <div key={ensemble.id}>
+        {/* Ensemble Header with Better Details */}
+        <div className="mb-8 rounded-lg overflow-hidden relative">
+          <div className="absolute inset-0 bg-[var(--color-stage-black)]/70" aria-hidden />
+          <div className="relative p-8 border border-[var(--color-border)]">
+            <div className="grid gap-8 lg:grid-cols-4">
+              {/* Poster */}
+              <div className="lg:col-span-1">
+                <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-lg bg-slate-700 relative">
+                  {ensemble.thumbnail_url ? (
+                    <Image
+                      src={ensemble.thumbnail_url}
+                      alt={ensemble.title}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Ticket className="h-12 w-12 text-slate-600" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Details */}
+              <div className="lg:col-span-3 text-[var(--color-on-hero)] space-y-4">
+                <div>
+                  <h3 className="text-3xl font-serif font-bold mb-2">{ensemble.title}</h3>
+                  {ensemble.synopsis_short && (
+                    <p className="text-lg text-[var(--color-on-hero)]/90 leading-relaxed">{ensemble.synopsis_short}</p>
+                  )}
+                </div>
+
+                {/* Key Info */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {ensemble.director && (
+                    <div>
+                      <p className="text-sm uppercase text-slate-400 font-semibold">Regi</p>
+                      <p className="text-lg">{ensemble.director}</p>
+                    </div>
+                  )}
+                  {ensemble.year && (
+                    <div>
+                      <p className="text-sm uppercase text-slate-400 font-semibold">År</p>
+                      <p className="text-lg">{ensemble.year}</p>
+                    </div>
+                  )}
+                  {ensemble.duration_minutes && (
+                    <div>
+                      <p className="text-sm uppercase text-slate-400 font-semibold">Varighet</p>
+                      <p className="text-lg flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        {ensemble.duration_minutes} min
+                      </p>
+                    </div>
+                  )}
+                  {ensemble.age_rating && (
+                    <div>
+                      <p className="text-sm uppercase text-slate-400 font-semibold">Aldersgrense</p>
+                      <p className="text-lg">{ensemble.age_rating}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Genres */}
+                {ensemble.genre && ensemble.genre.length > 0 && (
+                  <div>
+                    <p className="text-sm uppercase text-[var(--muted)] font-semibold mb-2">Sjanger</p>
+                    <div className="flex flex-wrap gap-2">
+                      {ensemble.genre?.map((g: string) => (
+                        <Badge key={g} variant="secondary" className="bg-[var(--card)] text-[var(--muted-foreground)]">
+                          {g}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Link to ensemble page */}
+                <Button asChild className="mt-4">
+                  <Link href={`/ensemble/${ensemble.slug}`}>Se mer detaljer</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Shows for this ensemble */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {ensembleShows.map((show: any) => {
+            const seatsLeft = show.available_seats || 0
+            const isLowAvailability = seatsLeft <= 10 && seatsLeft > 0
+            const isSoldOut = seatsLeft === 0
+
+            return (
+              <Card key={show.id} className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
+                isSoldOut ? 'opacity-60' : isLowAvailability ? 'ring-2 ring-amber-300' : ''
+              }`}>
+                <CardContent className="p-6">
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                        <Calendar className="h-4 w-4" />
+                        {formatDate(show.show_datetime)}
+                      </div>
+                      <div className="text-lg font-semibold">kl. {formatTime(show.show_datetime)}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {show.team && ensemble && (
+                        <Badge variant="secondary">
+                          {show.team === "yellow" ? ensemble.yellow_team_name : ensemble.blue_team_name}
+                        </Badge>
+                      )}
+                      {show.isEarlyBird && (
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
+                          Early Bird
+                        </Badge>
+                      )}
+                    </div>
+
+                    {show.venue && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        {show.venue.name}
+                      </div>
+                    )}
+
+                    {/* Seat availability */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4" />
+                      <span className={
+                        isSoldOut ? 'text-gray-500' : 
+                        isLowAvailability ? 'text-amber-600 font-medium' : 
+                        'text-muted-foreground'
+                      }>
+                        {isSoldOut ? 'Utsolgt' : 
+                         isLowAvailability ? `Kun ${seatsLeft} billetter igjen!` :
+                         `${seatsLeft} billetter tilgjengelig`}
+                      </span>
+                    </div>
+
+                    <div className="border-t pt-3 flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-2xl font-bold text-primary">
+                            {formatPrice(show.isEarlyBird ? show.earlyBirdPrice : show.base_price_nok)}
+                          </p>
+                          {show.isEarlyBird && (
+                            <span className="text-sm text-muted-foreground line-through">
+                              {formatPrice(show.base_price_nok)}
+                            </span>
+                          )}
+                        </div>
+                        {show.isEarlyBird && (
+                          <p className="text-xs text-green-600 font-medium">Spar 100 kr!</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button asChild className="w-full" disabled={isSoldOut}>
+                      <Link href={`/bestill/${show.id}`}>
+                        {isSoldOut ? "Utsolgt" : isLowAvailability ? "Kjøp raskt!" : "Kjøp billetter"}
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+    )
+  })
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -121,182 +302,12 @@ export default async function ShowsPage() {
         </section>
 
         {/* Shows by In-Production Ensembles */}
-        {inProductionEnsembles.size > 0 && (
+        {inProductionItems && inProductionItems.length > 0 && (
           <section className="py-12 border-b">
             <div className="container px-4">
               <h2 className="text-3xl font-bold mb-8">I Produksjon</h2>
               <div className="space-y-12">
-                {Array.from(inProductionEnsembles.values()).map(({ ensemble, shows: ensembleShows }) => (
-                  <div key={ensemble.id}>
-                    {/* Ensemble Header with Better Details */}
-                    <div className="mb-8 bg-gradient-to-r from-slate-900 to-slate-800 rounded-lg p-8 border border-slate-700">
-                      <div className="grid gap-8 lg:grid-cols-4">
-                        {/* Poster */}
-                        <div className="lg:col-span-1">
-                          <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-lg bg-slate-700 relative">
-                            {ensemble.thumbnail_url ? (
-                              <Image
-                                src={ensemble.thumbnail_url}
-                                alt={ensemble.title}
-                                fill
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Ticket className="h-12 w-12 text-slate-600" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Details */}
-                        <div className="lg:col-span-3 text-white space-y-4">
-                          <div>
-                            <h3 className="text-3xl font-bold mb-2">{ensemble.title}</h3>
-                            {ensemble.synopsis_short && (
-                              <p className="text-lg text-slate-200 leading-relaxed">{ensemble.synopsis_short}</p>
-                            )}
-                          </div>
-
-                          {/* Key Info */}
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            {ensemble.director && (
-                              <div>
-                                <p className="text-sm uppercase text-slate-400 font-semibold">Regi</p>
-                                <p className="text-lg">{ensemble.director}</p>
-                              </div>
-                            )}
-                            {ensemble.year && (
-                              <div>
-                                <p className="text-sm uppercase text-slate-400 font-semibold">År</p>
-                                <p className="text-lg">{ensemble.year}</p>
-                              </div>
-                            )}
-                            {ensemble.duration_minutes && (
-                              <div>
-                                <p className="text-sm uppercase text-slate-400 font-semibold">Varighet</p>
-                                <p className="text-lg flex items-center gap-2">
-                                  <Clock className="h-4 w-4" />
-                                  {ensemble.duration_minutes} min
-                                </p>
-                              </div>
-                            )}
-                            {ensemble.age_rating && (
-                              <div>
-                                <p className="text-sm uppercase text-slate-400 font-semibold">Aldersgrense</p>
-                                <p className="text-lg">{ensemble.age_rating}</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Genres */}
-                          {ensemble.genre && ensemble.genre.length > 0 && (
-                            <div>
-                              <p className="text-sm uppercase text-slate-400 font-semibold mb-2">Sjanger</p>
-                              <div className="flex flex-wrap gap-2">
-                                {ensemble.genre?.map((g: string) => (
-                                  <Badge key={g} variant="secondary" className="bg-slate-700 hover:bg-slate-600">
-                                    {g}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Link to ensemble page */}
-                          <Button asChild className="mt-4">
-                            <Link href={`/ensemble/${ensemble.slug}`}>Se mer detaljer</Link>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Shows for this ensemble */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {ensembleShows.map((show: any) => {
-                        const seatsLeft = show.available_seats || 0
-                        const isLowAvailability = seatsLeft <= 10 && seatsLeft > 0
-                        const isSoldOut = seatsLeft === 0
-                        
-                        return (
-                          <Card key={show.id} className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
-                            isSoldOut ? 'opacity-60' : isLowAvailability ? 'ring-2 ring-amber-300' : ''
-                          }`}>
-                            <CardContent className="p-6">
-                              <div className="space-y-3">
-                                <div>
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                                    <Calendar className="h-4 w-4" />
-                                    {formatDate(show.show_datetime)}
-                                  </div>
-                                  <div className="text-lg font-semibold">kl. {formatTime(show.show_datetime)}</div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  {show.team && ensemble && (
-                                    <Badge variant="secondary">
-                                      {show.team === "yellow" ? ensemble.yellow_team_name : ensemble.blue_team_name}
-                                    </Badge>
-                                  )}
-                                  {show.isEarlyBird && (
-                                    <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
-                                      Early Bird
-                                    </Badge>
-                                  )}
-                                </div>
-
-                                {show.venue && (
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <MapPin className="h-4 w-4" />
-                                    {show.venue.name}
-                                  </div>
-                                )}
-
-                                {/* Seat availability */}
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Users className="h-4 w-4" />
-                                  <span className={
-                                    isSoldOut ? 'text-gray-500' : 
-                                    isLowAvailability ? 'text-amber-600 font-medium' : 
-                                    'text-muted-foreground'
-                                  }>
-                                    {isSoldOut ? 'Utsolgt' : 
-                                     isLowAvailability ? `Kun ${seatsLeft} billetter igjen!` :
-                                     `${seatsLeft} billetter tilgjengelig`}
-                                  </span>
-                                </div>
-
-                                <div className="border-t pt-3 flex items-center justify-between">
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <p className="text-2xl font-bold text-primary">
-                                        {formatPrice(show.isEarlyBird ? show.earlyBirdPrice : show.base_price_nok)}
-                                      </p>
-                                      {show.isEarlyBird && (
-                                        <span className="text-sm text-muted-foreground line-through">
-                                          {formatPrice(show.base_price_nok)}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {show.isEarlyBird && (
-                                      <p className="text-xs text-green-600 font-medium">Spar 100 kr!</p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <Button asChild className="w-full" disabled={isSoldOut}>
-                                  <Link href={`/bestill/${show.id}`}>
-                                    {isSoldOut ? "Utsolgt" : isLowAvailability ? "Kjøp raskt!" : "Kjøp billetter"}
-                                  </Link>
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
+                {inProductionItems}
               </div>
             </div>
           </section>

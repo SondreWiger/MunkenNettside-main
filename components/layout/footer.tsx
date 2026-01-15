@@ -57,7 +57,7 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5">
           {/* About */}
           <div className="lg:col-span-2">
-            <h2 className="mb-4 text-lg font-semibold">Om Teateret</h2>
+            <h2 className="mb-4 text-lg font-semibold headline-serif">Om Teateret</h2>
             <p className="text-muted-foreground leading-relaxed">
               Vi er et lokalt teater med fokus på kvalitetsforestillinger for hele familien. Opplev magien på scenen
               eller hjemmefra med våre digitale opptak.
@@ -66,22 +66,22 @@ export function Footer() {
             <div className="mt-6 flex items-center gap-4">
               {siteSocials.instagram ? (
                 <a href={siteSocials.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                  <Instagram className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+                  <Instagram className="h-5 w-5 text-accent hover:text-foreground transition-colors" />
                 </a>
               ) : null}
               {siteSocials.facebook ? (
                 <a href={siteSocials.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                  <Facebook className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+                  <Facebook className="h-5 w-5 text-accent hover:text-foreground transition-colors" />
                 </a>
               ) : null}
               {siteSocials.twitter ? (
                 <a href={siteSocials.twitter} target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-                  <Twitter className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+                  <Twitter className="h-5 w-5 text-accent hover:text-foreground transition-colors" />
                 </a>
               ) : null}
               {siteSocials.youtube ? (
                 <a href={siteSocials.youtube} target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-                  <Youtube className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+                  <Youtube className="h-5 w-5 text-accent hover:text-foreground transition-colors" />
                 </a>
               ) : null}
             </div>
@@ -89,11 +89,14 @@ export function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h2 className="mb-4 text-lg font-semibold">Snarveier</h2>
+            <h2 className="mb-4 text-lg font-semibold headline-serif">Snarveier</h2>
             <nav className="flex flex-col gap-2">
               <Link href="/forestillinger" className="text-muted-foreground hover:text-foreground transition-colors">
                 Forestillinger
               </Link>
+                <Link href="/use" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Dokumentasjon
+                </Link>
               <Link href="/opptak" className="text-muted-foreground hover:text-foreground transition-colors">
                 Digitale opptak
               </Link>
@@ -111,7 +114,7 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <h2 className="mb-4 text-lg font-semibold">Kontakt</h2>
+            <h2 className="mb-4 text-lg font-semibold headline-serif">Kontakt</h2>
             <address className="flex flex-col gap-3 not-italic text-muted-foreground">
               <a
                 href="mailto:kontakt@teateret.no"
@@ -133,9 +136,9 @@ export function Footer() {
 
           {/* Newsletter */}
           <div>
-            <h2 className="mb-4 text-lg font-semibold">Nyhetsbrev</h2>
+            <h2 className="mb-4 text-lg font-semibold headline-serif">Nyhetsbrev</h2>
             <p className="text-sm text-muted-foreground mb-4">Få nyheter og kommende forestillinger rett i innboksen.</p>
-            <form onSubmit={handleSubscribe} className="flex gap-2">
+            <form id="newsletter" onSubmit={handleSubscribe} className="flex gap-2">
               <Input
                 aria-label="E-post for nyhetsbrev"
                 placeholder="din@email.no"

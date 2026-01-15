@@ -12,18 +12,20 @@ export const dynamic = "force-dynamic"
 
 export default function RecordingCheckoutPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
       <Header />
       <main id="hovedinnhold" className="flex-1">
-        <Suspense
-          fallback={
-            <div className="container px-4 py-8">
-              <div className="animate-pulse h-96 bg-muted rounded-lg" />
-            </div>
-          }
-        >
-          <RecordingCheckout />
-        </Suspense>
+        <section className="py-12">
+          <div className="max-w-3xl mx-auto px-4">
+            <Suspense
+              fallback={
+                <div className="animate-pulse h-72 bg-[var(--card)] rounded-lg" aria-hidden />
+              }
+            >
+              <RecordingCheckout />
+            </Suspense>
+          </div>
+        </section>
       </main>
       <Footer />
     </div>

@@ -163,7 +163,7 @@ export function CastManagementSection({ ensemble, setEnsemble }: CastManagementS
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {featuredMembers.map((member) => (
-                <div key={`${member.team}-${member.index}`} className="p-3 bg-white rounded-lg border border-amber-200">
+                <div key={`${member.team}-${member.index}`} className="p-3 bg-card rounded-lg border border-amber-200 text-card-foreground">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">{member.name}</div>

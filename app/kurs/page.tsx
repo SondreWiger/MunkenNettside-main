@@ -49,21 +49,20 @@ export default async function KursPage() {
   const regular = kurs.filter((k) => !k.featured)
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
         {/* Hero */}
-        <section className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-16">
-          <div className="container px-4">
+        <section className="py-20 bg-[var(--card)] border-b border-[var(--muted)]">
+          <div className="max-w-4xl mx-auto px-4">
             <div className="flex items-center gap-4 mb-4">
-              <BookOpen className="h-10 w-10" />
-              <h1 className="text-4xl font-bold md:text-5xl">Teaterkurs</h1>
+              <BookOpen className="h-10 w-10 text-[var(--accent)]" aria-hidden />
+              <div>
+                <h1 className="text-4xl md:text-5xl font-serif font-bold">Teaterkurs</h1>
+                <p className="mt-2 text-[var(--muted)] text-lg max-w-2xl">Lær, voks og utforsk teaterkunsten gjennom våre varierte kurs. Fra nybegynnere til avanserte — vi har noe for alle.</p>
+              </div>
             </div>
-            <p className="mt-4 text-xl text-primary-foreground/90 max-w-2xl">
-              Lær, voksk og utforsk teaterkunsten gjennom våre varierte kurs. Fra nybegynnere til avanserte,
-              vi har noe for alle!
-            </p>
           </div>
         </section>
 
@@ -74,57 +73,42 @@ export default async function KursPage() {
               <h2 className="text-2xl font-bold mb-8">Anbefalte kurs</h2>
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {featured.map((k) => (
-                  <Card
-                    key={k.id}
-                    className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
-                  >
-                    <div className="aspect-video relative bg-muted shrink-0 overflow-hidden">
+                  <article key={k.id} className="rounded-lg overflow-hidden bg-[var(--card)] shadow-soft" aria-labelledby={`kurs-${k.id}`}>
+                    <div className="relative h-48 bg-[var(--muted)]">
                       {k.thumbnail_url ? (
-                        <Image
-                          src={k.thumbnail_url}
-                          alt={k.title}
-                          fill
-                          className="object-cover hover:scale-105 transition-transform"
-                        />
+                        <Image src={k.thumbnail_url} alt={k.title} fill className="object-cover" />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                          <BookOpen className="h-16 w-16 text-primary/30" />
+                        <div className="h-full w-full flex items-center justify-center">
+                          <BookOpen className="h-16 w-16 text-[var(--muted)]" />
                         </div>
                       )}
                       <div className="absolute top-3 right-3">
-                        <Badge className={levelColors[k.level] || "bg-gray-100 text-gray-800"}>
-                          {levelLabels[k.level] || k.level}
-                        </Badge>
+                        <Badge className="bg-[var(--accent)] text-[var(--fg)]">{levelLabels[k.level] || k.level}</Badge>
                       </div>
                     </div>
-                    <CardHeader className="flex-1">
-                      <CardTitle className="line-clamp-2">{k.title}</CardTitle>
-                      {k.director && <CardDescription>Instruktør: {k.director}</CardDescription>}
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground line-clamp-2">{k.synopsis_short}</p>
+                    <div className="p-4">
+                      <h3 id={`kurs-${k.id}`} className="font-serif text-lg mb-1">{k.title}</h3>
+                      {k.director && <p className="text-sm text-[var(--muted)] mb-2">Instruktør: {k.director}</p>}
+                      <p className="text-sm text-[var(--muted)] line-clamp-2 mb-4">{k.synopsis_short}</p>
 
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-4 text-sm text-[var(--muted)]">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-primary" />
+                          <Clock className="h-4 w-4" aria-hidden />
                           <span>{k.duration_weeks} uker</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-primary" />
-                          <span>
-                            {k.current_participants}/{k.max_participants}
-                          </span>
+                          <Users className="h-4 w-4" aria-hidden />
+                          <span>{k.current_participants}/{k.max_participants}</span>
+                        </div>
+                        <div className="ml-auto flex items-center gap-4">
+                          <span className="font-bold text-lg">{formatPrice(k.price_nok)}</span>
+                          <Button asChild size="sm">
+                            <Link href={`/kurs/${k.slug}`} aria-label={`Se mer om ${k.title}`}>Se mer</Link>
+                          </Button>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t">
-                        <span className="font-bold text-lg">{formatPrice(k.price_nok)}</span>
-                        <Button asChild size="sm">
-                          <Link href={`/kurs/${k.slug}`}>Se mer</Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </article>
                 ))}
               </div>
             </div>
@@ -139,57 +123,42 @@ export default async function KursPage() {
             {kurs.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {kurs.map((k) => (
-                  <Card
-                    key={k.id}
-                    className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
-                  >
-                    <div className="aspect-video relative bg-muted shrink-0 overflow-hidden">
+                  <article key={k.id} className="rounded-lg overflow-hidden bg-[var(--card)] shadow-soft" aria-labelledby={`kurs-${k.id}`}>
+                    <div className="relative h-44 bg-[var(--muted)]">
                       {k.thumbnail_url ? (
-                        <Image
-                          src={k.thumbnail_url}
-                          alt={k.title}
-                          fill
-                          className="object-cover hover:scale-105 transition-transform"
-                        />
+                        <Image src={k.thumbnail_url} alt={k.title} fill className="object-cover" />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                          <BookOpen className="h-16 w-16 text-primary/30" />
+                        <div className="h-full w-full flex items-center justify-center">
+                          <BookOpen className="h-16 w-16 text-[var(--muted)]" />
                         </div>
                       )}
                       <div className="absolute top-3 right-3">
-                        <Badge className={levelColors[k.level] || "bg-gray-100 text-gray-800"}>
-                          {levelLabels[k.level] || k.level}
-                        </Badge>
+                        <Badge className="bg-[var(--accent)] text-[var(--fg)]">{levelLabels[k.level] || k.level}</Badge>
                       </div>
                     </div>
-                    <CardHeader className="flex-1">
-                      <CardTitle className="line-clamp-2">{k.title}</CardTitle>
-                      {k.director && <CardDescription>Instruktør: {k.director}</CardDescription>}
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground line-clamp-2">{k.synopsis_short}</p>
+                    <div className="p-4">
+                      <h3 id={`kurs-${k.id}`} className="font-serif text-lg mb-1">{k.title}</h3>
+                      {k.director && <p className="text-sm text-[var(--muted)] mb-2">Instruktør: {k.director}</p>}
+                      <p className="text-sm text-[var(--muted)] line-clamp-2 mb-4">{k.synopsis_short}</p>
 
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-4 text-sm text-[var(--muted)]">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-primary" />
+                          <Clock className="h-4 w-4" aria-hidden />
                           <span>{k.duration_weeks} uker</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-primary" />
-                          <span>
-                            {k.current_participants}/{k.max_participants}
-                          </span>
+                          <Users className="h-4 w-4" aria-hidden />
+                          <span>{k.current_participants}/{k.max_participants}</span>
+                        </div>
+                        <div className="ml-auto flex items-center gap-4">
+                          <span className="font-bold text-lg">{formatPrice(k.price_nok)}</span>
+                          <Button asChild size="sm">
+                            <Link href={`/kurs/${k.slug}`} aria-label={`Se mer om ${k.title}`}>Se mer</Link>
+                          </Button>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t">
-                        <span className="font-bold text-lg">{formatPrice(k.price_nok)}</span>
-                        <Button asChild size="sm">
-                          <Link href={`/kurs/${k.slug}`}>Se mer</Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </article>
                 ))}
               </div>
             ) : (

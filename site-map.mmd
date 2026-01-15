@@ -1,0 +1,87 @@
+flowchart TD
+    Home["/"] --> Forestillinger["/forestillinger"]
+    Home --> Kurs["/kurs"]
+    Home --> Archive["/archive"]
+    Home --> Opptak["/opptak"]
+    Home --> Ensemble["/ensemble"]
+    Home --> Admin["/admin"]
+    Home --> LoggInn["/logg-inn"]
+    Home --> Registrer["/registrer"]
+    Home --> Legal["/legal/vilkar"]
+
+    Forestillinger --> EnsembleDetail["/ensemble/[slug]"]
+    Opptak --> EnsembleDetail
+    Ensemble --> EnsembleDetail
+    EnsembleDetail --> Bestill["/bestill/[id]"]
+    EnsembleDetail --> EnsembleBestill["/ensemble/[slug]/bestill"]
+
+    EnsembleBestill --> EnsembleBekreftelse["/ensemble/[slug]/bekreftelse"]
+    EnsembleBekreftelse --> Kasse
+
+    Kurs --> KursDetail["/kurs/[slug]"]
+    KursDetail --> KursBestill["/kurs/[slug]/bestill"]
+    KursBestill --> KursBekreftelse["/kurs/[slug]/bekreftelse"]
+    KursBekreftelse --> Kasse
+
+    Bestill --> Bekreftelse["/bekreftelse"]
+    Bekreftelse --> Kasse["/kasse"]
+    Kasse --> Billetter["/billetter"]
+
+    Billetter --> Se["/se/[recordingId]"]
+
+    LoggInn --> Dashboard["/dashboard"]
+    LoggInn --> Registrer
+    Registrer --> Dashboard
+
+    Dashboard --> Billetter
+    Dashboard --> MineOpptak["/mine-opptak"]
+    Dashboard --> Profile["/profile/[slug]"]
+    Dashboard --> MinSide["/min-side"]
+    Dashboard --> Admin
+    Dashboard --> DashboardInnstillinger["/dashboard/innstillinger"]
+    Dashboard --> DashboardForesporsel["/dashboard/foresporsel"]
+    Dashboard --> DashboardPamelding["/dashboard/pamelding-tillatelser"]
+
+    Profile --> Dashboard
+
+    subgraph AdminPages ["Admin Pages"]
+        Admin --> AdminVenues["/admin/venues"]
+        Admin --> AdminEnsembler["/admin/ensembler"]
+        Admin --> AdminForestillinger["/admin/forestillinger"]
+        Admin --> AdminKurs["/admin/kurs"]
+        Admin --> AdminRabattkoder["/admin/rabattkoder"]
+        Admin --> AdminStatistics["/admin/statistics"]
+        Admin --> AdminNyForestilling["/admin/ny-forestilling"]
+
+        AdminVenues --> AdminVenuesNy["/admin/venues/ny"]
+        AdminVenues --> AdminVenuesId["/admin/venues/[id]"]
+
+        AdminEnsembler --> AdminEnsemblerNy["/admin/ensembler/ny"]
+        AdminEnsembler --> AdminEnsemblerId["/admin/ensembler/[id]"]
+
+        AdminForestillinger --> AdminForestillingerNy["/admin/forestillinger/ny"]
+
+        AdminKurs --> AdminKursNy["/admin/kurs/ny"]
+        AdminKurs --> AdminKursId["/admin/kurs/[id]"]
+
+        AdminRabattkoder --> AdminRabattkoderNy["/admin/rabattkoder/ny"]
+
+        subgraph AdminLegal ["Admin Legal"]
+            Admin --> AdminLegalEula["/admin/legal/eula"]
+            Admin --> AdminLegalPersonvern["/admin/legal/personvern"]
+            Admin --> AdminLegalTos["/admin/legal/tos"]
+            Admin --> AdminLegalVilkar["/admin/legal/vilkar"]
+        end
+    end
+
+    NotFound["/not-found"] --> Home
+    NotFound --> Forestillinger
+    NotFound --> Billetter
+    NotFound --> Kurs
+    NotFound --> LoggInn
+
+    TestSeatmap["/test-seatmap"] --> Home
+    DevHeroTest["/dev-hero-test"] --> Home
+    Actor["/actor"] --> Home
+
+    Search["/search?q=..."] --> Home

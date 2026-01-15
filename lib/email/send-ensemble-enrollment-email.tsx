@@ -1,6 +1,7 @@
 'use server'
 
 import nodemailer from 'nodemailer'
+import { getThemeTokensServer } from '@/lib/theme/getThemeTokensServer'
 
 interface EnrollmentEmailData {
   recipientEmail: string
@@ -28,13 +29,13 @@ function getTransporter() {
   return transporter
 }
 
-function getEmailTemplate(
+async function getEmailTemplate(
   recipientName: string,
   childName: string | undefined,
   ensembleTitle: string,
   enrollmentStatus: string,
   enrollmentReference: string
-): { subject: string; html: string } {
+): Promise<{ subject: string; html: string }> {
   const fromEmail = process.env.BREVO_FROM_EMAIL || 'noreply@teateret.no'
   const fromName = process.env.BREVO_FROM_NAME || 'Teateret'
   const supportEmail = process.env.SUPPORT_EMAIL || 'kontakt@teateret.no'
@@ -121,6 +122,14 @@ function getEmailTemplate(
     mainContent = `<p style="color: #555; margin-bottom: 20px;">Takk for din påmelding!</p>`
   }
 
+  const theme = (await getThemeTokensServer()) || {}
+  const hero = theme.gradient_hero || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+  const card = theme.card || '#FFFFFF'
+  const cardFg = theme.card_foreground || '#333'
+  const muted = theme.muted || '#555'
+  const border = theme.color_border || '#e0e0e0'
+  const primary = theme.primary || '#667eea'
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -129,13 +138,13 @@ function getEmailTemplate(
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
       <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+        <div style="background: ${hero}; padding: 20px; text-align: center;">
           <h1 style="color: white; margin: 0; font-size: 28px;">🎭 ${ensembleTitle}</h1>
         </div>
         
-        <div style="max-width: 600px; margin: 20px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="max-width: 600px; margin: 20px auto; background: ${card}; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           
-          <p style="color: #333; margin-bottom: 20px;">${greeting}</p>
+          <p style="color: ${cardFg}; margin-bottom: 20px;">${greeting}</p>
           
           ${mainContent}
           
@@ -147,8 +156,8 @@ function getEmailTemplate(
             </p>
           </div>
           
-          <p style="color: #555; margin-top: 30px; margin-bottom: 10px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
-            Har du spørsmål? Kontakt oss på <a href="mailto:${supportEmail}" style="color: #667eea; text-decoration: none;">${supportEmail}</a>
+          <p style="color: ${muted}; margin-top: 30px; margin-bottom: 10px; border-top: 1px solid ${border}; padding-top: 20px;">
+            Har du spørsmål? Kontakt oss på <a href="mailto:${supportEmail}" style="color: ${primary}; text-decoration: none;">${supportEmail}</a>
           </p>
           
           <p style="color: #999; font-size: 12px; margin-top: 20px;">
@@ -181,7 +190,7 @@ export async function sendEnrollmentEmail(data: EnrollmentEmailData): Promise<{ 
   }
 
   try {
-    const { subject, html } = getEmailTemplate(
+    const { subject, html } = await getEmailTemplate(
       data.recipientName,
       data.childName,
       data.ensembleTitle,

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import QRCode from 'qrcode'
 import { 
   Users, 
   Crown, 
@@ -32,7 +33,7 @@ interface User {
   full_name: string
   email: string
   phone?: string
-  role: 'customer' | 'staff' | 'admin'
+  role: 'customer' | 'staff' | 'admin' | 'superadmin'
   profile_slug?: string
   actor_id?: string
   actor?: {
@@ -69,7 +70,7 @@ export function UserManagement() {
   const [submitting, setSubmitting] = useState(false)
 
   const [userForm, setUserForm] = useState({
-    role: 'customer' as 'customer' | 'staff' | 'admin',
+  role: 'customer' as 'customer' | 'staff' | 'admin' | 'superadmin',
     actorId: '',
     profileSlug: ''
   })
@@ -339,7 +340,7 @@ export function UserManagement() {
   const openUserDialog = (user: User) => {
     setEditingUser(user)
     // Ensure role is one of the valid values, default to customer if not
-    const validRole = ['customer', 'staff', 'admin'].includes(user.role) ? user.role : 'customer'
+  const validRole = ['customer', 'staff', 'admin', 'superadmin'].includes(user.role) ? user.role : 'customer'
     setUserForm({
       role: validRole,
       actorId: user.actor_id || 'none',
@@ -379,6 +380,7 @@ export function UserManagement() {
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin': return Crown
+      case 'superadmin': return Crown
       case 'staff': return Shield
       default: return User
     }
@@ -387,12 +389,17 @@ export function UserManagement() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800'
+      case 'superadmin': return 'bg-purple-100 text-purple-800'
       case 'staff': return 'bg-blue-100 text-blue-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
 
   const [sendingVerificationFor, setSendingVerificationFor] = useState<string | null>(null)
+  const [showRegistrationModalFor, setShowRegistrationModalFor] = useState<string | null>(null)
+  const [registrationToken, setRegistrationToken] = useState<string | null>(null)
+  const [registrationQr, setRegistrationQr] = useState<string | null>(null)
+  const [registrationExpires, setRegistrationExpires] = useState<string | null>(null)
 
   const handleSendVerification = async (userId: string) => {
     if (!confirm('Send verifikasjonskode til denne administratoren?')) return
@@ -569,6 +576,31 @@ export function UserManagement() {
                         <Mail className="h-4 w-4" />
                       </Button>
                     )}
+                    {user.role === 'admin' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            setShowRegistrationModalFor(user.id)
+                            const res = await fetch('/api/admin/devices/create-registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceName: `Initial device for ${user.email}` }) })
+                            const data = await res.json()
+                            if (!res.ok) throw new Error(data.error || 'Kunne ikke generere QR')
+                            setRegistrationToken(data.token)
+                            setRegistrationExpires(data.expiresAt)
+                            const uri = await QRCode.toDataURL(data.token)
+                            setRegistrationQr(uri)
+                          } catch (e: any) {
+                            console.error(e)
+                            toast.error(e.message || 'Kunne ikke generere QR')
+                            setShowRegistrationModalFor(null)
+                          }
+                        }}
+                        title="Generer onboarding QR"
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -689,6 +721,7 @@ export function UserManagement() {
                     <SelectItem value="customer">Kunde</SelectItem>
                     <SelectItem value="staff">Ansatt</SelectItem>
                     <SelectItem value="admin">Administrator</SelectItem>
+                    <SelectItem value="superadmin">Superadmin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -804,7 +837,7 @@ export function UserManagement() {
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
                 />
-                <div className="max-h-60 overflow-y-auto border rounded-md bg-white">
+                <div className="max-h-60 overflow-y-auto border rounded-md bg-card text-card-foreground">
                   <div
                     className={cn(
                       "p-3 cursor-pointer hover:bg-gray-100 transition-colors border-b",
@@ -937,6 +970,34 @@ export function UserManagement() {
             >
               {submitting ? 'Oppretter...' : 'Opprett alle'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Registration QR Modal (admin-generated) */}
+      <Dialog open={!!showRegistrationModalFor} onOpenChange={(open) => { if (!open) { setShowRegistrationModalFor(null); setRegistrationToken(null); setRegistrationQr(null); setRegistrationExpires(null) } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Onboarding QR</DialogTitle>
+            <DialogDescription>
+              Vis denne QR-koden til den nye administratoren. Den er gyldig i noen minutter.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {registrationQr ? (
+              <div className="flex flex-col items-center gap-2">
+                <img src={registrationQr} alt="Onboarding QR" className="w-64 h-64 object-contain" />
+                <p className="text-sm text-muted-foreground">Gyldig til: {registrationExpires ? new Date(registrationExpires).toLocaleString('nb-NO') : '—'}</p>
+                <p className="text-xs text-muted-foreground">QR inneholder en kort registrerings-token som må skannes med en allerede betrodd enhet.</p>
+              </div>
+            ) : (
+              <p>Genererer QR…</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setShowRegistrationModalFor(null); setRegistrationToken(null); setRegistrationQr(null); setRegistrationExpires(null) }}>Lukk</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

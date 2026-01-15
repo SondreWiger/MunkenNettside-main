@@ -1118,7 +1118,7 @@ export function EnhancedCastManager({ ensembleId, roles, onChange }: EnhancedCas
                         
                         {/* Suggestions dropdown */}
                         {showSuggestions && actorSuggestions.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                          <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto text-popover-foreground">
                             {actorSuggestions.map((actor) => (
                               <div
                                 key={actor.id}

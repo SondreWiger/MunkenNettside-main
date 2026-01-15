@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import SiteAppearanceAdmin from '@/components/admin/site-appearance'
 
 interface SiteSettings {
   site_name: string
@@ -142,6 +143,9 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Site appearance (admin only) */}
+        <SiteAppearanceAdmin />
 
         <Card>
           <CardHeader>

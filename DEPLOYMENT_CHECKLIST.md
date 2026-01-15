@@ -70,6 +70,11 @@ HOST=0.0.0.0
 # Database
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+
+# Optional: Remote image host whitelist
+# If you use external image hosts (Framer, Cloudinary, Supabase storage, etc.)
+# set NEXT_IMAGE_DOMAINS to a comma-separated list of hostnames so Next.js Image can load/optimize them.
+# Example: NEXT_IMAGE_DOMAINS=framerusercontent.com,ucarecdn.com,res.cloudinary.com
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Email (Brevo SMTP)

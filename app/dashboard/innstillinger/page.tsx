@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
+import { DeviceManager } from '@/components/user/device-manager'
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
@@ -886,6 +887,8 @@ export default function SettingsPage() {
                 </Card>
               </TabsContent>
 
+              {/* Removed admin-only site appearance tab: site-wide appearance is managed in Admin > Innstillinger */}
+
               {/* Appearance Tab */}
               <TabsContent value="appearance" className="space-y-4">
                 <Card>
@@ -1445,6 +1448,8 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
                 )}
+                {/* Device manager available to all users */}
+                <DeviceManager />
               </TabsContent>
 
               {/* Family Tab */}

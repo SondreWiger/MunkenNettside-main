@@ -22,7 +22,7 @@ export async function GET() {
     }
 
     const { data: currentUserRow } = await supabase.from('users').select('role, admin_verified').eq('id', currentUser.id).single()
-    if (currentUserRow?.role !== 'admin' || !deviceTrusted) {
+    if (currentUserRow?.role !== 'admin' && currentUserRow?.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -56,7 +56,7 @@ export async function GET() {
     // Ensure all users have valid roles
     const validUsers = (users || []).map(user => ({
       ...user,
-      role: ['customer', 'staff', 'admin'].includes(user.role) ? user.role : 'customer'
+      role: ['customer', 'staff', 'admin', 'superadmin'].includes(user.role) ? user.role : 'customer'
     }))
 
     return NextResponse.json({ users: validUsers })
@@ -82,7 +82,8 @@ export async function PUT(request: NextRequest) {
       .eq('id', currentUser.id)
       .single()
 
-    if (userData?.role !== 'admin' || userData?.admin_verified !== true) {
+    // Allow superadmins to perform user updates without requiring admin_verified
+    if ((userData?.role !== 'admin' && userData?.role !== 'superadmin') || (userData?.role === 'admin' && userData?.admin_verified !== true)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -103,7 +104,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
 
-    if (role && !['customer', 'staff', 'admin'].includes(role)) {
+    if (role && !['customer', 'staff', 'admin', 'superadmin'].includes(role)) {
       console.error('Invalid role received:', role)
       return NextResponse.json({ error: `Invalid role: ${role}. Must be 'customer', 'staff', or 'admin'` }, { status: 400 })
     }
@@ -142,13 +143,20 @@ export async function PUT(request: NextRequest) {
       
       if (trimmedRole && trimmedRole !== currentRole) {
         // Only update if role is different AND valid
-        if (['customer', 'staff', 'admin'].includes(trimmedRole)) {
+        // Only a superadmin may promote another user to superadmin
+        if (trimmedRole === 'superadmin') {
+          if (currentUser?.role !== 'superadmin') {
+            return NextResponse.json({ error: `Only a superadmin can assign the 'superadmin' role` }, { status: 403 })
+          }
+        }
+
+        if (['customer', 'staff', 'admin', 'superadmin'].includes(trimmedRole)) {
           updateData.role = trimmedRole // Use exact value, don't change casing
           console.log(`✓ Role will be updated from "${currentRole}" to "${trimmedRole}"`)
         } else {
-          console.error('Invalid role value:', trimmedRole, 'Valid values:', ['customer', 'staff', 'admin'])
+          console.error('Invalid role value:', trimmedRole, 'Valid values:', ['customer', 'staff', 'admin', 'superadmin'])
           return NextResponse.json({ 
-            error: `Invalid role: "${trimmedRole}". Must be 'customer', 'staff', or 'admin'` 
+            error: `Invalid role: "${trimmedRole}". Must be 'customer', 'staff', 'admin' or 'superadmin'` 
           }, { status: 400 })
         }
       } else {
@@ -201,13 +209,14 @@ export async function PUT(request: NextRequest) {
 
     console.log('User updated successfully:', user)
 
-    // If role was changed to admin, ensure admin UUID and verification flags are set and notify staff email
-    if (updateData.role === 'admin') {
+    // If role was changed to admin or superadmin, ensure admin UUID and verification flags are set and notify staff email
+    if (updateData.role === 'admin' || updateData.role === 'superadmin') {
       try {
         const adminUuid = crypto?.randomUUID ? crypto.randomUUID() : (await import('crypto')).randomUUID()
+        const makeVerified = updateData.role === 'superadmin'
         const { data: updatedUser, error: adminUpdateError } = await supabase
           .from('users')
-          .update({ admin_uuid: adminUuid, admin_verified: false, admin_uuid_created_at: new Date().toISOString() })
+          .update({ admin_uuid: adminUuid, admin_verified: makeVerified, admin_uuid_created_at: new Date().toISOString() })
           .eq('id', userId)
           .select()
           .single()

@@ -24,7 +24,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const { data: currentUserRow } = await supabase.from('users').select('role').eq('id', currentUser.id).single()
-    if (currentUserRow?.role !== 'admin' || !deviceTrusted) {
+    // Allow superadmins to bypass device trust requirement
+    if (currentUserRow?.role !== 'admin' && currentUserRow?.role !== 'superadmin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (currentUserRow?.role === 'admin' && !deviceTrusted) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -105,21 +109,38 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error('send-verification: rate limit check failed', err)
     }
 
-  // Generate code and insert
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
-    const { error: insertError } = await supabase.from('admin_verifications').insert({ user_id: userId, code, expires_at: expiresAt })
+    // Create a numeric verification code and send it to the promoted admin via email.
+    const codeLength = 6
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24h
+    // Generate a simple numeric code like 6 digits
+    const code = (Math.floor(Math.random() * Math.pow(10, codeLength))).toString().padStart(codeLength, '0')
+
+    const { error: insertError } = await supabase.from('admin_verifications').insert({
+      user_id: userId,
+      code,
+      qr_token: null,
+      qr_scanned: false,
+      code_type: 'numeric',
+      code_length: codeLength,
+      expires_at: expiresAt,
+      created_by_admin_id: currentUser.id,
+    })
+
     if (insertError) {
-      console.error('Failed to insert admin_verification:', insertError)
+      console.error('Failed to insert admin_verification (code):', insertError)
       return NextResponse.json({ error: 'Failed to create verification' }, { status: 500 })
     }
 
-    // Send email
-    const sendResult = await sendAdminVerificationCode({ toEmail: targetUser.email, userFullName: targetUser.full_name || undefined, code, expiresAt })
-    if (!sendResult.success) {
-      console.error('Failed to send admin verification email:', sendResult.error)
-      return NextResponse.json({ error: sendResult.error || 'Failed to send email' }, { status: 500 })
+    try {
+      const sendResult = await sendAdminVerificationCode({ toEmail: targetUser.email, userFullName: targetUser.full_name || '', code, expiresAt })
+      if (!sendResult.success) {
+        console.error('Failed to send admin verification email:', sendResult.error)
+        return NextResponse.json({ error: sendResult.error || 'Failed to send verification email' }, { status: 500 })
+      }
+    } catch (err) {
+      console.error('Failed to send admin verification email:', err)
+      return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 })
     }
 
     console.log('Admin verification code created and emailed to', targetUser.email)

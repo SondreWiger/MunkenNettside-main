@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import Image from "next/image"
-import { Users, Mail, Phone, Theater, ArrowLeft } from "lucide-react"
+import { Users, Mail, Phone, Theater } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -87,22 +87,22 @@ export default async function ActorPage({ params }: PageProps) {
   const { actor, roles } = data
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
       <Header />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 text-white">
-          <div className="container px-4 py-16">
+        <div className="relative bg-[var(--color-stage-black)] text-[var(--color-on-hero)] film-grain">
+          <div className="container px-4 py-20 md:py-24">
             {/* Back Button */}
             <div className="mb-8">
               <BackButton />
             </div>
 
-            <div className="grid gap-8 lg:grid-cols-3">
+            <div className="grid gap-10 lg:grid-cols-3 items-start">
               {/* Actor Photo */}
               <div className="lg:col-span-1">
-                <div className="aspect-[3/4] relative rounded-xl overflow-hidden bg-slate-800">
+                <div className="aspect-[3/4] relative rounded-xl overflow-hidden bg-[var(--color-stage-black)]">
                   {actor.photo_url ? (
                     <Image
                       src={actor.photo_url}
@@ -120,9 +120,10 @@ export default async function ActorPage({ params }: PageProps) {
               </div>
 
               {/* Actor Info */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-8">
                 <div>
-                  <h1 className="text-4xl md:text-5xl font-bold mb-4">{actor.name}</h1>
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold mb-2 tracking-tight">{actor.name}</h1>
+                  <p className="text-sm text-[var(--muted)] mb-4">Skuespillerprofil</p>
                   
                   {/* Status Badge */}
                   {actor.user ? (
@@ -140,8 +141,8 @@ export default async function ActorPage({ params }: PageProps) {
                   {/* Bio */}
                   {actor.bio && (
                     <div>
-                      <h2 className="text-xl font-semibold mb-3">Om skuespilleren</h2>
-                      <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{actor.bio}</p>
+                      <h2 className="text-lg md:text-xl font-semibold mb-3">Om skuespilleren</h2>
+                      <p className="text-[var(--muted)] leading-relaxed whitespace-pre-wrap text-lg">{actor.bio}</p>
                     </div>
                   )}
                 </div>
@@ -149,20 +150,20 @@ export default async function ActorPage({ params }: PageProps) {
                 {/* Contact Info */}
                 {(actor.contact_email || actor.contact_phone) && (
                   <div>
-                    <h2 className="text-xl font-semibold mb-3">Kontaktinformasjon</h2>
-                    <div className="space-y-2">
+                    <h2 className="text-lg font-semibold mb-3">Kontaktinformasjon</h2>
+                    <div className="space-y-3 text-[var(--muted)]">
                       {actor.contact_email && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-slate-400" />
-                          <a href={`mailto:${actor.contact_email}`} className="text-slate-300 hover:text-white">
+                        <div className="flex items-center gap-3">
+                          <Mail className="h-5 w-5 text-[var(--muted)]" />
+                          <a href={`mailto:${actor.contact_email}`} className="hover:underline">
                             {actor.contact_email}
                           </a>
                         </div>
                       )}
                       {actor.contact_phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-slate-400" />
-                          <a href={`tel:${actor.contact_phone}`} className="text-slate-300 hover:text-white">
+                        <div className="flex items-center gap-3">
+                          <Phone className="h-5 w-5 text-[var(--muted)]" />
+                          <a href={`tel:${actor.contact_phone}`} className="hover:underline">
                             {actor.contact_phone}
                           </a>
                         </div>
@@ -191,18 +192,18 @@ export default async function ActorPage({ params }: PageProps) {
 
         {/* Roles Section */}
         {roles.length > 0 && (
-          <section className="py-16 bg-slate-50">
+          <section className="py-16 bg-[var(--bg)]" aria-labelledby="roles-heading">
             <div className="container px-4">
-              <h2 className="text-3xl font-bold text-center mb-12">Roller</h2>
-              
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <h2 id="roles-heading" className="text-3xl md:text-4xl font-serif font-bold text-center mb-12">Roller</h2>
+
+              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
                 {roles.map((role) => {
                   const ensemble = Array.isArray(role.ensemble) ? role.ensemble[0] : role.ensemble
                   
                   return (
-                    <Card key={role.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                      <Link href={`/ensemble/${ensemble.slug}`}>
-                        <div className="aspect-[3/2] relative bg-slate-200">
+                    <Card key={role.id} className="overflow-hidden hover:shadow-pop transition-shadow">
+                      <Link href={`/ensemble/${ensemble.slug}`} aria-label={`Gå til ${ensemble.title}`}>
+                        <div className="aspect-[3/2] relative bg-[var(--card)]">
                           {ensemble.thumbnail_url ? (
                             <Image
                               src={ensemble.thumbnail_url}
@@ -212,11 +213,11 @@ export default async function ActorPage({ params }: PageProps) {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Theater className="h-12 w-12 text-slate-400" />
+                              <Theater className="h-12 w-12 text-[var(--muted)]" />
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                          <div className="absolute bottom-4 left-4 text-white">
+                          <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-stage-black)/60] via-transparent to-transparent" />
+                          <div className="absolute bottom-4 left-4 text-[var(--color-on-hero)]">
                             <h3 className="font-semibold text-lg">{ensemble.title}</h3>
                             {ensemble.year && (
                               <p className="text-sm opacity-90">{ensemble.year}</p>
@@ -225,15 +226,15 @@ export default async function ActorPage({ params }: PageProps) {
                         </div>
                       </Link>
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold">{role.character_name}</h4>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-lg">{role.character_name}</h4>
                             {role.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">{role.description}</p>
+                              <p className="text-sm text-[var(--muted)] line-clamp-2">{role.description}</p>
                             )}
                           </div>
                           {role.importance === 'lead' && (
-                            <Badge className="bg-amber-500 text-amber-50">⭐ Hovedrolle</Badge>
+                            <Badge className="bg-[var(--accent)] text-[var(--fg)]">⭐ Hovedrolle</Badge>
                           )}
                         </div>
                       </CardContent>

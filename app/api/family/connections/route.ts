@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    let children: any[] = []
-    let parents: any[] = []
+    const children: any[] = []
+    const parents: any[] = []
 
     // If parent, get connected children
     if (userData.account_type === "parent") {

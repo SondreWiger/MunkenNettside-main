@@ -290,15 +290,15 @@ export function VisualSeatMapEditor({ venueId, initialConfig, onSave }: VisualSe
   const getCellStyle = (cell: GridCell) => {
     switch (cell.type) {
       case 'seat':
-        return 'bg-green-500 hover:bg-green-600 text-white'
+        return 'bg-success hover:bg-success/80 text-success-foreground'
       case 'aisle':
-        return 'bg-gray-200 hover:bg-gray-300'
+        return 'bg-muted hover:bg-muted/80'
       case 'stage':
-        return 'bg-purple-500 hover:bg-purple-600 text-white'
+        return 'bg-accent hover:bg-accent/80 text-accent-foreground'
       case 'wall':
-        return 'bg-gray-800 hover:bg-gray-900 text-white'
+        return 'bg-secondary hover:bg-secondary/80 text-secondary-foreground'
       default:
-        return 'bg-white border border-gray-300 hover:bg-gray-50'
+        return 'bg-card border border-muted hover:bg-muted/80'
     }
   }
 

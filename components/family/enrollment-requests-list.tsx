@@ -148,7 +148,7 @@ export function EnrollmentRequestsList() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {request.request_message && (
-                  <div className="rounded-lg bg-white p-3 text-sm">
+                  <div className="rounded-lg bg-card p-3 text-sm text-card-foreground">
                     <p className="font-medium mb-1">Melding:</p>
                     <p className="text-muted-foreground">{request.request_message}</p>
                   </div>

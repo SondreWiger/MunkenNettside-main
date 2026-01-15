@@ -1,6 +1,18 @@
 "use client"
 
+
 import type React from "react"
+
+interface Seat {
+  id?: string
+  uuid?: string
+  section: string
+  row: string | number
+  col?: number
+  number?: number
+  status?: string
+  reserved_until?: string
+}
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -23,7 +35,7 @@ import { toast } from "sonner"
 interface BookingData {
   showId: string
   // seats may arrive in legacy numeric form {row:number, col:number} or modern {row: string, number: number}
-  seats: Array<{ row: number | string; col?: number; number?: number; section: string; status?: string; reserved_until?: string }>
+  seats: Seat[]
   totalPrice: number
   reservedUntil: string
 }
@@ -31,7 +43,7 @@ interface BookingData {
 export function TicketCheckout() {
   const [bookingData, setBookingData] = useState<BookingData | null>(null)
   const [show, setShow] = useState<Show | null>(null)
-  const [seats, setSeats] = useState<Array<{ row: number | string; col?: number; number?: number; section: string; status?: string; reserved_until?: string }>>([])
+  const [seats, setSeats] = useState<Seat[]>([])
   const [customerName, setCustomerName] = useState("")
   const [customerEmail, setCustomerEmail] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
@@ -41,6 +53,7 @@ export function TicketCheckout() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [timeLeft, setTimeLeft] = useState(0)
+  const [holdToken, setHoldToken] = useState<string | null>(null)
   const [discountCode, setDiscountCode] = useState("")
   const [discountError, setDiscountError] = useState<string | null>(null)
   const [appliedDiscount, setAppliedDiscount] = useState<{ type: string; value: number } | null>(null)
@@ -102,12 +115,12 @@ export function TicketCheckout() {
         const res = await fetch(`/api/seats/list?showId=${data.showId}`)
         if (!res.ok) return
         const json = await res.json()
-        const serverSeats: any[] = json.seats || []
+  const serverSeats: Seat[] = json.seats || []
         // Map server seat statuses into local seats where possible
-        const merged = (data.seats || []).map(s => {
+        const merged = (data.seats || []).map((s: Seat) => {
           // s may be legacy {row:number,col:number} or modern {row:string,number:number}
-          const sRow = (s as any).row
-          const sNumber = (s as any).number != null ? (s as any).number : ((s as any).col != null ? (s as any).col + 1 : null)
+          const sRow = s.row
+          const sNumber = s.number != null ? s.number : (s.col != null ? s.col + 1 : null)
           const match = serverSeats.find(ss => ss.section === s.section && String(ss.row) === String(sRow) && Number(ss.number) === Number(sNumber))
           return match ? { ...s, status: match.status, reserved_until: match.reserved_until } : s
         })
@@ -135,6 +148,32 @@ export function TicketCheckout() {
       }
     }
     getUser()
+
+    // Create a server-side seat hold for the selected seats to secure them during checkout
+    const createHold = async () => {
+      try {
+        const duration = Math.max(60, Math.floor((new Date(data.reservedUntil).getTime() - Date.now()) / 1000))
+        const res = await fetch('/api/seats/hold/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ show_id: data.showId, seats: data.seats, duration_seconds: duration }),
+        })
+
+        const json = await res.json()
+        if (!res.ok) {
+          console.warn('[Checkout] create hold failed:', json)
+          setError('Noe gikk galt med reservasjonen — vennligst prøv igjen')
+          return
+        }
+
+        setHoldToken(json.hold_token || null)
+        console.log('[Checkout] Hold token created:', json.hold_token)
+      } catch (err) {
+        console.warn('[Checkout] createHold error:', err)
+      }
+    }
+
+    createHold()
   }, [router, supabase])
 
   // Countdown timer
@@ -155,6 +194,19 @@ export function TicketCheckout() {
 
     return () => clearInterval(timer)
   }, [timeLeft, router])
+
+  // Clean up: release hold on unmount if still active
+  useEffect(() => {
+    return () => {
+      if (holdToken) {
+        try {
+          fetch('/api/seats/hold/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hold_token: holdToken }) })
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }, [holdToken])
 
   const formatTimeLeft = () => {
     const minutes = Math.floor(timeLeft / 60)
@@ -257,7 +309,7 @@ export function TicketCheckout() {
     setError(null)
   }
 
-  const handlePayPalSuccess = async (details: any) => {
+  const handlePayPalSuccess = async (details: { id: string }) => {
     if (!bookingData || !show) return
 
     setIsProcessing(true)
@@ -274,6 +326,7 @@ export function TicketCheckout() {
         specialRequests,
         totalAmount: calculatePrice(),
         discountCode: appliedDiscount ? discountCode.toUpperCase() : null,
+        holdToken,
         paypalOrderId: details.id,
       }
 
@@ -303,6 +356,15 @@ export function TicketCheckout() {
 
       // Clear session storage
       sessionStorage.removeItem("booking")
+
+      // release local hold if any (server side booking create already deactivated it)
+      try {
+        if (holdToken) {
+          await fetch('/api/seats/hold/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hold_token: holdToken }) })
+        }
+      } catch (e) {
+        // ignore
+      }
 
       toast.success("Betaling fullført!")
       
@@ -597,7 +659,7 @@ export function TicketCheckout() {
                   {seats.map((seat, idx) => {
                     // Support both legacy numeric row/col and modern {row: 'A', number: 1}
                     const displayRow = typeof seat.row === 'number' ? String.fromCharCode(65 + seat.row) : String(seat.row || '?')
-                    const displayNumber = (seat as any).number != null ? (seat as any).number : (seat.col != null ? seat.col + 1 : '?')
+                    const displayNumber = seat.number != null ? seat.number : (seat.col != null ? seat.col + 1 : '?')
                     return (
                       <div key={`${seat.section}-${displayRow}-${displayNumber}`} className="flex justify-between items-center">
                         <span>

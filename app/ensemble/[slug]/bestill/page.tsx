@@ -391,30 +391,27 @@ export default function EnsembleCheckoutPage({ params }: { params: Promise<{ slu
   const isFree = participationPrice === 0
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
         {/* Breadcrumb */}
-        <div className="bg-muted/50 border-b">
-          <div className="container px-4 py-3">
-            <Link
-              href={`/ensemble/${slug}`}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
+        <nav aria-label="Brødsmulesti" className="bg-[var(--card)] border-b border-[var(--muted)]">
+          <div className="max-w-4xl mx-auto px-4 py-3">
+            <Link href={`/ensemble/${slug}`} className="flex items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--fg)] transition-colors">
               <ArrowLeft className="h-4 w-4" />
               Tilbake til ensemble
             </Link>
           </div>
-        </div>
+        </nav>
 
         {/* Main Content */}
-        <div className="container px-4 py-8 max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+            <h1 className="text-3xl md:text-4xl font-serif font-bold mb-2">
               {enrollmentStatus === 'accepted' ? 'Betal medlemskap' : 'Meld deg på ensemble'}
             </h1>
-            <p className="text-muted-foreground">{ensemble.title}</p>
+            <p className="text-[var(--muted)]">{ensemble.title}</p>
           </div>
 
           {enrollmentStatus === 'paid' && (
@@ -489,7 +486,7 @@ export default function EnsembleCheckoutPage({ params }: { params: Promise<{ slu
                         <Label>Hvem skal meldes på?</Label>
                         
                         {/* Enroll self checkbox */}
-                        <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent transition-colors">
+                        <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-[var(--accent)]/10 transition-colors">
                           <input
                             type="checkbox"
                             checked={enrollSelf}
@@ -513,8 +510,8 @@ export default function EnsembleCheckoutPage({ params }: { params: Promise<{ slu
                                 key={child.id}
                                 className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
                                   !canEnroll
-                                    ? 'opacity-50 cursor-not-allowed bg-gray-50' 
-                                    : 'cursor-pointer hover:bg-accent'
+                                    ? 'opacity-50 cursor-not-allowed bg-[var(--bg)]' 
+                                    : 'cursor-pointer hover:bg-[var(--accent)]/10'
                                 }`}
                                 title={isBlocked ? 'Påmelding blokkert - endre i innstillinger' : needsRequest ? 'Barnet må be om tillatelse selv' : ''}
                               >

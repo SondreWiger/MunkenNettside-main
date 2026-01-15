@@ -17,6 +17,7 @@ import { EnsembleControls } from "@/components/admin/ensemble-controls"
 import { EnhancedCastManager } from "@/components/admin/enhanced-cast-manager"
 import { Ensemble } from "@/lib/types"
 import { toast } from "sonner"
+import SessionManager from "@/components/admin/session-manager"
 
 export const dynamic = "force-dynamic"
 
@@ -327,12 +328,13 @@ export default function EditEnsemblePage() {
 
       <div className="container px-4 py-8">
         <Tabs defaultValue="info" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="info">Info</TabsTrigger>
           <TabsTrigger value="cast">Rollebesetning</TabsTrigger>
           <TabsTrigger value="members">Medlemmer</TabsTrigger>
           <TabsTrigger value="recordings">Opptak ({recordings.length})</TabsTrigger>
           <TabsTrigger value="media">Media</TabsTrigger>
+          <TabsTrigger value="sessions">Øvinger</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-6">
@@ -544,6 +546,18 @@ export default function EditEnsemblePage() {
                   <Label>Fremhevet</Label>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sessions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Øvinger / Møtedager</CardTitle>
+              <CardDescription>Administrer øvinger og interne møter for dette ensemblet</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SessionManager ensembleId={ensembleId} />
             </CardContent>
           </Card>
         </TabsContent>

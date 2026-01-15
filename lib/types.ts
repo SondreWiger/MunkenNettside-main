@@ -208,6 +208,8 @@ export interface Show {
   id: string
   ensemble_id?: string
   title?: string
+  source_type?: ShowSourceType
+  is_session?: boolean
   type: ShowType
   team?: TeamType
   show_datetime: string
@@ -227,6 +229,7 @@ export interface Show {
   // Joined data
   ensemble?: Ensemble
   venue?: Venue
+  kurs?: Kurs
 }
 
 export interface Seat {

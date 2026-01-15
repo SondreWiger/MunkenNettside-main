@@ -1,0 +1,109 @@
+/* Design tokens based on "Comprehensive Design System for Theatre Website" */
+:root {
+  /* Primary palette */
+  --color-stage-black: #0A0A0A; /* Stage Black */
+  --color-spotlight-warm: #FFF6DF; /* Spotlight Warm (warmer) */
+  --color-curtain-deep: #7F0F2E; /* Curtain Deep (richer burgundy) */
+  --color-intermission-blue: #12313f; /* Intermission Blue (deeper) */
+  --color-foggy-white: #F7F3E9; /* Foggy White (slightly warmer) */
+
+  /* Functional colors */
+  --color-success: #2D5016;
+  --color-warning: #C8621B;
+  --color-error: #B91C1C;
+  --color-info: #475569;
+
+  /* Map to existing site variable names (backwards compatible) */
+  --color-background: var(--color-stage-black);
+  --color-foreground: var(--color-spotlight-warm);
+  --color-primary: var(--color-curtain-deep);
+  --color-primary-foreground: var(--color-spotlight-warm);
+  --color-accent: var(--color-intermission-blue);
+  --color-muted: var(--color-foggy-white);
+  --color-muted-foreground: var(--color-info);
+  --color-destructive: var(--color-error);
+  --color-border: rgba(255,255,255,0.06);
+
+  /* Gradients */
+  --gradient-hero: radial-gradient(ellipse at center, #0A0A0A 0%, #1A3B52 100%);
+  --gradient-hover: linear-gradient(90deg, #8B1538 0%, #A01D45 100%);
+  --gradient-hero: radial-gradient(ellipse at center, #050505 0%, #12313f 100%);
+  --gradient-hover: linear-gradient(90deg, var(--color-curtain-deep) 0%, #a11b44 100%);
+
+  /* Typography tokens (font-family names only; load fonts separately) */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Menlo', 'Courier New', monospace;
+
+  /* Type scale (clamp values to be used where needed) */
+  --type-hero-min: 3.5rem;
+  --type-hero-max: 7rem;
+  --type-h1-min: 2.5rem;
+  --type-h1-max: 4rem;
+  --type-h2-min: 2rem;
+  --type-h2-max: 3rem;
+  --type-h3-min: 1.5rem;
+  --type-h3-max: 2rem;
+  --type-body-large: 1.125rem;
+  --type-body: 1rem;
+  --type-small: 0.875rem;
+  --type-caption: 0.75rem;
+
+  /* Spacing scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
+
+  /* Radii & shadows */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-soft: 0 6px 18px rgba(10,10,10,0.25);
+  --shadow-pop: 0 12px 32px rgba(10,10,10,0.35);
+
+  /* Motion preferences */
+  --motion-duration-fast: 150ms;
+  --motion-duration-medium: 300ms;
+  --motion-duration-slow: 400ms;
+
+  /* Utility */
+  --focus-ring: var(--color-intermission-blue);
+
+  /* Semantic surface tokens (use these in components/pages instead of raw white/black) */
+  --color-surface: rgba(255,255,255,0.03); /* panels, cards on dark stage */
+  --color-on-surface: var(--color-spotlight-warm);
+  --color-card: rgba(255,255,255,0.02);
+  --color-on-card: var(--color-spotlight-warm);
+  --color-on-hero: var(--color-spotlight-warm);
+  --color-overlay-text: rgba(255,255,255,0.95);
+  --color-cta-text: var(--color-spotlight-warm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-fast: 0ms;
+    --motion-duration-medium: 0ms;
+    --motion-duration-slow: 0ms;
+  }
+}
+
+/* Dark-mode overrides: keep theatrical intent but invert foreground/background mapping */
+.dark {
+  --color-background: var(--color-foggy-white);
+  --color-foreground: var(--color-stage-black);
+  /* In light mode, surface/card should be subtle light tints */
+  --color-surface: rgba(10,10,10,0.03);
+  --color-card: rgba(10,10,10,0.02);
+  --color-on-surface: var(--color-stage-black);
+  --color-on-card: var(--color-stage-black);
+}
+
+/* Convenience helpers for clamped type (used in components via var()) */
+.clamp-hero { font-size: clamp(var(--type-hero-min), 6vw, var(--type-hero-max)); }
+.clamp-h1 { font-size: clamp(var(--type-h1-min), 5vw, var(--type-h1-max)); }
+.clamp-h2 { font-size: clamp(var(--type-h2-min), 4vw, var(--type-h2-max)); }

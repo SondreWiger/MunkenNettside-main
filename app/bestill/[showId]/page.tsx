@@ -124,7 +124,7 @@ export default async function BookingPage({ params }: PageProps) {
                        (Array.isArray(show.venue?.seat_map_config?.seats) && show.venue.seat_map_config.seats.some((s: any) => typeof s.x === 'number' && typeof s.y === 'number'))
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
@@ -149,9 +149,9 @@ export default async function BookingPage({ params }: PageProps) {
             earlyBirdDiscount={earlyBirdDiscount}
           />
         )}
-        <div className="text-center mt-8 text-sm text-muted-foreground">
+        <div className="text-center mt-8 text-sm text-[var(--muted)]">
           Ved å bestille godtar du våre{' '}
-          <a href="/legal/vilkar" target="_blank" className="underline hover:text-blue-600">Vilkår for kjøp</a>.
+          <a href="/legal/vilkar" target="_blank" className="underline text-[var(--muted-foreground)] hover:text-[var(--fg)]">Vilkår for kjøp</a>.
         </div>
       </main>
 

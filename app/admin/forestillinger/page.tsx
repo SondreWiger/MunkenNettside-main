@@ -50,7 +50,7 @@ export default async function ShowsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">Forestillinger</h1>
-          <p className="text-muted-foreground">Administrer forestillinger og billettsalg</p>
+          <p className="text-muted-foreground">Administrer forestillinger, øvinger og billettsalg</p>
         </div>
         <Button asChild>
           <Link href="/admin/forestillinger/ny">
@@ -82,6 +82,7 @@ export default async function ShowsPage() {
                     <CardTitle className="text-xl">
                       {show.ensemble?.title || show.title || "Ukjent"} -{" "}
                       {show.team === "yellow" ? "Gult lag" : "Blått lag"}
+                      {show.is_session && <span className="ml-2 inline-block text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">Øving</span>}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-4 mt-2">
                       <span className="flex items-center gap-1">
