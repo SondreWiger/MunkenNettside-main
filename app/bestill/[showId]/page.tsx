@@ -1,8 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
-import { SeatMapViewer } from "@/components/booking/seat-map-viewer"
-import { VisualSeatMapViewer } from "@/components/booking/visual-seat-map-viewer"
+import { UnifiedSeatBooking } from "@/components/booking/unified-seat-booking"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { generateSeatsFromConfig } from "@/lib/utils/seat-generation"
 
@@ -124,34 +123,66 @@ export default async function BookingPage({ params }: PageProps) {
                        (Array.isArray(show.venue?.seat_map_config?.seats) && show.venue.seat_map_config.seats.some((s: any) => typeof s.x === 'number' && typeof s.y === 'number'))
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
-        {hasVisualGrid ? (
-          <VisualSeatMapViewer 
+        {/* Page Header */}
+        <section className="bg-white shadow-sm border-b">
+          <div className="container max-w-7xl mx-auto px-4 py-8 text-center">
+            <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
+              {show.title || show.ensemble?.title || "Forestilling"}
+            </h1>
+            {show.team && show.ensemble && (
+              <div className="mb-4">
+                <span className="inline-block px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                  {show.team === "yellow" 
+                    ? show.ensemble.yellow_team_name 
+                    : show.ensemble.blue_team_name}
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-slate-600 mb-4">
+              <span className="flex items-center gap-2">
+                📅 {new Date(show.show_datetime).toLocaleDateString('nb-NO', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </span>
+              <span className="flex items-center gap-2">
+                🕐 {new Date(show.show_datetime).toLocaleTimeString('nb-NO', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+              <span className="flex items-center gap-2">
+                📍 {show.venue?.name || "Sted ikke spesifisert"}
+              </span>
+            </div>
+            
+            {isEarlyBird && (
+              <div className="inline-block px-4 py-2 bg-green-100 border border-green-300 text-green-800 rounded-lg">
+                ⏰ <strong>Early Bird:</strong> Spar {earlyBirdDiscount}kr per billett!
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div className="container max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+          <UnifiedSeatBooking 
             show={show} 
             seats={seats} 
             isEarlyBird={isEarlyBird}
             earlyBirdDiscount={earlyBirdDiscount}
-            venueGrid={{
-              gridRows: show.venue.seat_map_config?.gridData?.rows || 0,
-              gridCols: show.venue.seat_map_config?.gridData?.cols || 0,
-              grid: show.venue.seat_map_config?.gridData?.grid || []
-            }}
-            seatMapConfig={show.venue.seat_map_config}
+            mode="visual"
+            seatMapConfig={show.venue?.seat_map_config}
           />
-        ) : (
-          <SeatMapViewer 
-            show={show} 
-            seats={seats} 
-            isEarlyBird={isEarlyBird}
-            earlyBirdDiscount={earlyBirdDiscount}
-          />
-        )}
-        <div className="text-center mt-8 text-sm text-[var(--muted)]">
+        </div>
+        <div className="text-center py-6 text-sm text-slate-600">
           Ved å bestille godtar du våre{' '}
-          <a href="/legal/vilkar" target="_blank" className="underline text-[var(--muted-foreground)] hover:text-[var(--fg)]">Vilkår for kjøp</a>.
+          <a href="/legal/vilkar" target="_blank" className="underline text-slate-700 hover:text-slate-900">Vilkår for kjøp</a>.
         </div>
       </main>
 

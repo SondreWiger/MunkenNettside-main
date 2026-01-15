@@ -77,7 +77,11 @@ export async function POST(request: Request) {
 
     const { error: userUpdateError } = await supabase
       .from('users')
-      .update({ admin_verified: true })
+      .update({ 
+        admin_verified: true,
+        admin_uuid: globalThis.crypto.randomUUID(), // Regenerate UUID for next login
+        admin_uuid_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      })
       .eq('id', currentUser.id)
 
     if (userUpdateError) {

@@ -287,17 +287,32 @@ export default async function ShowsPage() {
   })
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <Header />
 
       <main id="hovedinnhold" className="flex-1">
         {/* Hero */}
-        <section className="bg-primary text-primary-foreground py-16">
-          <div className="container px-4">
-            <h1 className="text-4xl font-bold md:text-5xl">Forestillinger</h1>
-            <p className="mt-4 text-xl text-primary-foreground/80">
-              Finn og bestill billetter til kommende forestillinger
-            </p>
+        <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+          <div className="container px-4 py-16 lg:py-24">
+            <div className="max-w-4xl mx-auto text-center">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
+                Alle forestillinger
+              </h1>
+              <p className="text-lg lg:text-xl text-slate-300 mb-8 leading-relaxed">
+                Utforsk vårt repertoar av forestillinger og opplevelser. 
+                Kjøp billetter til de beste plassene i salen.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <span className="flex items-center gap-2 text-slate-300">
+                  🎭 <span className="font-semibold">{shows.length}</span> forestillinger tilgjengelig
+                </span>
+                {kursShows.length > 0 && (
+                  <span className="flex items-center gap-2 text-slate-300">
+                    📚 <span className="font-semibold">{kursShows.length}</span> kurs-økter
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </section>
 

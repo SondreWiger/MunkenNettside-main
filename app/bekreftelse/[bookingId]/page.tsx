@@ -132,11 +132,60 @@ export default async function ConfirmationPage({ params }: PageProps) {
 
                 <div className="border-t mt-4 pt-4">
                   <h3 className="font-medium mb-2">Seter</h3>
+                  
+                  {/* Visual seat map */}
+                  {show?.venue?.seat_map_config && (
+                    <div className="mb-4 p-4 bg-slate-50 rounded-lg overflow-x-auto">
+                      <div className="text-center mb-3">
+                        <div className="inline-block px-3 py-1 bg-slate-800 text-white text-sm rounded font-medium">Scene</div>
+                      </div>
+                      <div className="inline-block border border-slate-200 bg-white p-2 rounded min-w-fit">
+                        {show.venue.seat_map_config.gridData?.grid ? (
+                          // Grid layout
+                          show.venue.seat_map_config.gridData.grid.map((gridRow: any[], rowIndex: number) => (
+                            <div key={rowIndex} className="flex gap-0.5 mb-0.5">
+                              {gridRow.map((cell: any, colIndex: number) => {
+                                if (cell.type === 'seat') {
+                                  const isBooked = seats.some((s: any) => 
+                                    s.row === String(cell.row) && Number(s.number) === Number(cell.number)
+                                  )
+                                  return (
+                                    <div 
+                                      key={colIndex}
+                                      className={`w-6 h-6 rounded text-[10px] font-bold flex items-center justify-center ${
+                                        isBooked 
+                                          ? 'bg-blue-600 text-white border-2 border-blue-700' 
+                                          : 'bg-gray-200 text-gray-400'
+                                      }`}
+                                      title={isBooked ? `Ditt sete: ${cell.row}${cell.number}` : ''}
+                                    >
+                                      {cell.number}
+                                    </div>
+                                  )
+                                } else if (cell.type === 'aisle') {
+                                  return <div key={colIndex} className="w-6 h-6 bg-slate-300" />
+                                } else if (cell.type === 'stage') {
+                                  return <div key={colIndex} className="w-6 h-6 bg-slate-800 text-[8px] text-white flex items-center justify-center font-bold">S</div>
+                                } else {
+                                  return <div key={colIndex} className="w-6 h-6" />
+                                }
+                              })}
+                            </div>
+                          ))
+                        ) : (
+                          // Fallback text list
+                          <div className="text-center text-sm text-gray-500">Setekart ikke tilgjengelig</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Text list */}
                   <div className="grid gap-2">
                     {seats.map((seat: any, idx: number) => (
-                      <div key={`${seat.section}-${seat.row}-${seat.col}`} className="flex justify-between p-2 bg-muted rounded">
+                      <div key={`${seat.section || 'Sal'}-${seat.row}-${seat.number}`} className="flex justify-between p-2 bg-muted rounded">
                         <span>
-                          {seat.section}, Rad {String.fromCharCode(65 + seat.row)}, Sete {seat.col + 1}
+                          {seat.section || 'Sal'}, Rad {seat.row}, Sete {seat.number}
                         </span>
                       </div>
                     ))}

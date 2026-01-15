@@ -17,7 +17,10 @@ export default function LegalDashboard() {
 			<main className="flex-1 flex flex-col items-center py-20 px-4">
 				<div className="w-full max-w-3xl bg-[var(--card)] rounded-xl shadow-soft p-10 border border-[var(--muted)]">
 					<h1 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-center">Juridiske dokumenter</h1>
-					<p className="text-[var(--muted)] text-center mb-6">Vennligst les våre vilkår og personvernregler før du bruker tjenestene våre.</p>
+					<p className="text-[var(--muted)] text-center mb-4">Vennligst les våre vilkår og personvernregler før du bruker tjenestene våre.</p>
+					<div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+						<p className="text-sm text-blue-800"><strong>GDPR-kompatibel:</strong> Våre retningslinjer følger EUs personvernforordning (GDPR) og norsk personvernlovgivning.</p>
+					</div>
 
 					<ul className="grid gap-3">
 						{legalDocs.map((doc) => (

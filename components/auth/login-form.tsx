@@ -90,9 +90,18 @@ export function LoginForm() {
         const statusRes = await fetch('/api/auth/admin/status')
         const statusData = await statusRes.json()
         if (statusData?.requiresVerification) {
-          // Start admin verification flow
-          // If the server exposes an adminUuid (dev only), prefill it to help debugging
-          if (statusData?.adminUuid) setAdminUuidInput(statusData.adminUuid)
+          // For admin users, regenerate UUID on every login for security
+          const regenerateRes = await fetch('/api/auth/admin/regenerate-uuid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          
+          if (regenerateRes.ok) {
+            const regenData = await regenerateRes.json()
+            // If the server exposes an adminUuid (dev only), prefill it to help debugging
+            if (regenData?.adminUuid) setAdminUuidInput(regenData.adminUuid)
+          }
+          
           setIsAdminVerification(true)
           return
         }
@@ -249,7 +258,16 @@ export function LoginForm() {
                     <Input id="adminUuid" value={adminUuidInput} onChange={(e) => setAdminUuidInput(e.target.value)} className="h-12" required />
                   </div>
                     <div className="mt-3">
-                      <p className="text-sm text-muted-foreground mb-2">Hvis du er blitt promotert til administrator vil du motta en verifiseringskode på e-post. Skriv inn Admin UUID og trykk «Send kode».</p>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Som administrator regenereres din UUID ved hver pålogging av sikkerhetshensyn. 
+                        Du har mottatt en ny UUID på e-post. Skriv inn Admin UUID og trykk «Send kode».
+                      </p>
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mt-2">
+                        <p className="text-xs text-yellow-800">
+                          <strong>⚠️ Sikkerhet:</strong> Admin UUID utløper etter 24 timer. 
+                          Kontakt superadmin hvis du ikke har tilgang til e-posten din eller UUID-en har utløpt.
+                        </p>
+                      </div>
                     </div>
                   <div className="flex gap-2 mt-4">
                     <Button type="submit" disabled={isLoading}>Send kode</Button>

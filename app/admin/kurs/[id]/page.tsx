@@ -37,6 +37,8 @@ interface Kurs {
   is_published: boolean
   featured: boolean
   instructor_actor_id?: string | null
+  waitlist_enabled?: boolean
+  auto_accept_enabled?: boolean
 }
 
 export default function EditKursPage() {
@@ -91,7 +93,7 @@ export default function EditKursPage() {
           level: formData.level,
           duration_weeks: formData.duration_weeks,
           max_participants: formData.max_participants,
-            instructor_actor_id: formData.instructor_actor_id || null,
+          instructor_actor_id: formData.instructor_actor_id || null,
           thumbnail_url: formData.thumbnail_url,
           banner_url: formData.banner_url,
           synopsis_short: formData.synopsis_short,
@@ -99,6 +101,8 @@ export default function EditKursPage() {
           price_nok: formData.price_nok,
           is_published: formData.is_published,
           featured: formData.featured,
+          waitlist_enabled: formData.waitlist_enabled ?? true,
+          auto_accept_enabled: formData.auto_accept_enabled ?? true,
         })
         .eq("id", kursId)
 
@@ -233,6 +237,38 @@ export default function EditKursPage() {
                     value={formData.max_participants}
                     onChange={(e) => setFormData({ ...formData, max_participants: parseInt(e.target.value) || 0 })}
                   />
+                </div>
+
+                {/* Waitlist Settings */}
+                <div className="space-y-3 p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <span className="p-1 bg-blue-100 dark:bg-blue-900/50 rounded">
+                      <svg className="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </span>
+                    Kapasitet og venteliste
+                  </h4>
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-slate-900">
+                    <div>
+                      <p className="font-medium text-sm">Aktiver venteliste</p>
+                      <p className="text-xs text-muted-foreground">Når kurset er fullt</p>
+                    </div>
+                    <Switch
+                      checked={(formData as any).waitlist_enabled ?? true}
+                      onCheckedChange={(checked) => setFormData({ ...formData, waitlist_enabled: checked } as any)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-slate-900">
+                    <div>
+                      <p className="font-medium text-sm">Automatisk godkjenning</p>
+                      <p className="text-xs text-muted-foreground">Nye deltakere godkjennes automatisk når det er plass</p>
+                    </div>
+                    <Switch
+                      checked={(formData as any).auto_accept_enabled ?? true}
+                      onCheckedChange={(checked) => setFormData({ ...formData, auto_accept_enabled: checked } as any)}
+                    />
+                  </div>
                 </div>
 
                 <div className="p-4 bg-muted rounded-lg">

@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react"
+import { Plus, Edit, Trash2, Eye, EyeOff, GraduationCap, Search, Users, MoreHorizontal, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface Kurs {
   id: string
@@ -102,17 +107,26 @@ export default function KursListPage() {
     mixed: "Blandet",
   }
 
+  const levelColors: Record<string, string> = {
+    beginner: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    intermediate: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    advanced: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    mixed: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  }
+
+  const publishedCount = kurs.filter(k => k.is_published).length
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <main className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <Link href="/admin" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake til dashboard
-          </Link>
-          <h1 className="text-3xl font-bold">Administrer Kurs</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Kurs</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {kurs.length} kurs • {publishedCount} publisert
+          </p>
         </div>
-        <Button asChild>
+        <Button asChild size="sm" className="w-fit bg-blue-600 hover:bg-blue-700">
           <Link href="/admin/kurs/ny">
             <Plus className="h-4 w-4 mr-2" />
             Nytt kurs
@@ -120,95 +134,149 @@ export default function KursListPage() {
         </Button>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Søk i kurs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Input
-            placeholder="Søk etter kursnavn eller beskrivelse..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
-          />
+      {/* Search */}
+      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Søk etter kurs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+            />
+          </div>
         </CardContent>
       </Card>
 
+      {/* List */}
       {isLoading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Laster kurs...</p>
-        </div>
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-3" />
+            <p className="text-sm text-slate-500">Laster kurs...</p>
+          </CardContent>
+        </Card>
       ) : filteredKurs.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">
-            {searchTerm ? "Ingen kurs funnet." : "Ingen kurs opprettet ennå."}
-          </p>
-          <Button asChild>
-            <Link href="/admin/kurs/ny">Opprett første kurs</Link>
-          </Button>
-        </div>
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
+              <GraduationCap className="h-8 w-8 text-slate-400" />
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 font-medium mb-1">
+              {searchTerm ? "Ingen kurs funnet" : "Ingen kurs ennå"}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              {searchTerm ? "Prøv et annet søk" : "Opprett ditt første kurs for å komme i gang"}
+            </p>
+            {!searchTerm && (
+              <Button asChild size="sm">
+                <Link href="/admin/kurs/ny">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Opprett kurs
+                </Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4">
-          {filteredKurs.map((k) => (
-            <Card key={k.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CardTitle className="text-xl">{k.title}</CardTitle>
-                      <Badge variant={k.is_published ? "default" : "secondary"}>
-                        {k.is_published ? "Publisert" : "Kladd"}
-                      </Badge>
-                      <Badge variant="outline">{levelLabels[k.level] || k.level}</Badge>
-                      {k.featured && <Badge className="bg-yellow-500">Fremhevet</Badge>}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredKurs.map((k) => {
+            const fillPercent = k.max_participants ? (k.current_participants / k.max_participants) * 100 : 0
+            
+            return (
+              <Card key={k.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-slate-900 dark:text-white truncate">{k.title}</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
+                        {k.description}
+                      </p>
                     </div>
-                    <CardDescription className="line-clamp-2">{k.description}</CardDescription>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Deltakere: {k.current_participants}/{k.max_participants || "Ubegrenset"}
-                    </p>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => togglePublished(k.id, k.is_published)}>
+                          {k.is_published ? (
+                            <>
+                              <EyeOff className="h-4 w-4 mr-2" />
+                              Skjul kurs
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Publiser
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/kurs/${k.id}`} className="flex items-center gap-2">
+                            <Edit className="h-4 w-4" />
+                            Rediger
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => deleteKurs(k.id)}
+                          className="text-red-600 dark:text-red-400"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Slett
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        togglePublished(k.id, k.is_published)
-                      }}
+
+                  {/* Badges */}
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    <Badge 
+                      variant={k.is_published ? "default" : "secondary"}
+                      className={k.is_published ? "bg-green-600 hover:bg-green-700" : ""}
                     >
-                      {k.is_published ? (
-                        <div className="flex items-center gap-1">
-                          <EyeOff className="h-4 w-4" />
-                          Skjul
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4" />
-                          Publiser
-                        </div>
-                      )}
-                    </Button>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/admin/kurs/${k.id}`}>
-                        <Edit className="h-4 w-4 mr-1" />
-                        Rediger
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => deleteKurs(k.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      {k.is_published ? "Publisert" : "Kladd"}
+                    </Badge>
+                    <Badge variant="outline" className={levelColors[k.level] || levelColors.mixed}>
+                      {levelLabels[k.level] || k.level}
+                    </Badge>
+                    {k.featured && (
+                      <Badge className="bg-amber-500 hover:bg-amber-600">Fremhevet</Badge>
+                    )}
                   </div>
-                </div>
-              </CardHeader>
-            </Card>
-          ))}
+
+                  {/* Participants */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                        <Users className="h-4 w-4" />
+                        Deltakere
+                      </span>
+                      <span className="font-medium text-slate-900 dark:text-white">
+                        {k.current_participants}/{k.max_participants || "∞"}
+                      </span>
+                    </div>
+                    {k.max_participants > 0 && (
+                      <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all ${
+                            fillPercent >= 90 ? 'bg-red-500' : fillPercent >= 70 ? 'bg-amber-500' : 'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min(fillPercent, 100)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
-    </div>
+    </main>
   )
 }

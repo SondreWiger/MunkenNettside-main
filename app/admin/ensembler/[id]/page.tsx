@@ -495,6 +495,68 @@ export default function EditEnsemblePage() {
                 </div>
               </div>
 
+              {/* Capacity & Waitlist Section */}
+              <div className="space-y-4 p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <span className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                    <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </span>
+                  Kapasitet og venteliste
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Maks antall skuespillere</Label>
+                    <Input
+                      type="number"
+                      value={ensemble.max_actors || ""}
+                      onChange={(e) =>
+                        setEnsemble({ 
+                          ...ensemble, 
+                          max_actors: e.target.value === "" ? null : Number.parseInt(e.target.value) 
+                        })
+                      }
+                      placeholder="Ubegrenset"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      La feltet stå tomt for ubegrenset kapasitet
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Venteliste</Label>
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-slate-900">
+                      <div>
+                        <p className="font-medium text-sm">Aktiver venteliste</p>
+                        <p className="text-xs text-muted-foreground">Når ensemblet er fullt</p>
+                      </div>
+                      <Switch
+                        checked={ensemble.waitlist_enabled ?? true}
+                        onCheckedChange={(checked) => setEnsemble({ ...ensemble, waitlist_enabled: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-slate-900">
+                  <div>
+                    <p className="font-medium text-sm">Automatisk godkjenning</p>
+                    <p className="text-xs text-muted-foreground">Nye medlemmer godkjennes automatisk når det er plass</p>
+                  </div>
+                  <Switch
+                    checked={ensemble.auto_accept_enabled ?? true}
+                    onCheckedChange={(checked) => setEnsemble({ ...ensemble, auto_accept_enabled: checked })}
+                  />
+                </div>
+                {ensemble.participation_price_nok > 0 && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      <strong>Merk:</strong> Deltakelsesavgift er satt til {ensemble.participation_price_nok} NOK. 
+                      Medlemmer må betale før de blir bekreftet.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Fase/Status</Label>

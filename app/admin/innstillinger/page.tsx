@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { Loader2, Save, Globe, Mail, Phone, Bug } from "lucide-react"
+import { Loader2, Save, Globe, Mail, Share2, Bug, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -102,140 +102,198 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <main className="container px-4 py-8 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <main className="p-6 flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm text-slate-500">Laster innstillinger...</p>
+        </div>
       </main>
     )
   }
 
   return (
-    <main className="container px-4 py-8 max-w-3xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Innstillinger</h1>
-        <p className="text-muted-foreground">Administrer nettstedinnstillinger</p>
+    <main className="p-6 space-y-6 max-w-4xl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Innstillinger</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Konfigurer nettsted og systeminnstillinger</p>
+        </div>
+        <Button onClick={handleSave} disabled={isSaving} size="sm" className="w-fit bg-blue-600 hover:bg-blue-700">
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Lagrer...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Lagre endringer
+            </>
+          )}
+        </Button>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              Generelt
-            </CardTitle>
-            <CardDescription>Grunnleggende nettstedinformasjon</CardDescription>
+        {/* General Settings */}
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Generelt</CardTitle>
+                <CardDescription>Grunnleggende nettstedinformasjon</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="site_name">Nettstedsnavn</Label>
-              <Input
-                id="site_name"
-                value={settings.site_name}
-                onChange={(e) => setSettings((p) => ({ ...p, site_name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="site_description">Beskrivelse</Label>
-              <Textarea
-                id="site_description"
-                value={settings.site_description}
-                onChange={(e) => setSettings((p) => ({ ...p, site_description: e.target.value }))}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="site_name">Nettstedsnavn</Label>
+                <Input
+                  id="site_name"
+                  value={settings.site_name}
+                  onChange={(e) => setSettings((p) => ({ ...p, site_name: e.target.value }))}
+                  className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="site_description">Beskrivelse</Label>
+                <Textarea
+                  id="site_description"
+                  value={settings.site_description}
+                  onChange={(e) => setSettings((p) => ({ ...p, site_description: e.target.value }))}
+                  className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                  rows={2}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Site appearance (admin only) */}
+        {/* Site appearance */}
         <SiteAppearanceAdmin />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Kontaktinformasjon
-            </CardTitle>
+        {/* Contact Information */}
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                <Mail className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Kontaktinformasjon</CardTitle>
+                <CardDescription>Kontaktdetaljer som vises på nettsiden</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="contact_email">E-post</Label>
-              <Input
-                id="contact_email"
-                type="email"
-                value={settings.contact_email}
-                onChange={(e) => setSettings((p) => ({ ...p, contact_email: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contact_phone">Telefon</Label>
-              <Input
-                id="contact_phone"
-                type="tel"
-                value={settings.contact_phone}
-                onChange={(e) => setSettings((p) => ({ ...p, contact_phone: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Adresse</Label>
-              <Textarea
-                id="address"
-                value={settings.address}
-                onChange={(e) => setSettings((p) => ({ ...p, address: e.target.value }))}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">E-post</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  value={settings.contact_email}
+                  onChange={(e) => setSettings((p) => ({ ...p, contact_email: e.target.value }))}
+                  className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact_phone">Telefon</Label>
+                <Input
+                  id="contact_phone"
+                  type="tel"
+                  value={settings.contact_phone}
+                  onChange={(e) => setSettings((p) => ({ ...p, contact_phone: e.target.value }))}
+                  className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="address">Adresse</Label>
+                <Textarea
+                  id="address"
+                  value={settings.address}
+                  onChange={(e) => setSettings((p) => ({ ...p, address: e.target.value }))}
+                  className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                  rows={2}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5" />
-              Sosiale medier
-            </CardTitle>
+        {/* Social Media */}
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                <Share2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Sosiale medier</CardTitle>
+                <CardDescription>Lenker til sosiale medieprofiler</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="facebook">Facebook URL</Label>
-              <Input
-                id="facebook"
-                type="url"
-                value={settings.social_links.facebook || ""}
-                onChange={(e) =>
-                  setSettings((p) => ({
-                    ...p,
-                    social_links: { ...p.social_links, facebook: e.target.value },
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instagram">Instagram URL</Label>
-              <Input
-                id="instagram"
-                type="url"
-                value={settings.social_links.instagram || ""}
-                onChange={(e) =>
-                  setSettings((p) => ({
-                    ...p,
-                    social_links: { ...p.social_links, instagram: e.target.value },
-                  }))
-                }
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="facebook">Facebook URL</Label>
+                <Input
+                  id="facebook"
+                  type="url"
+                  placeholder="https://facebook.com/..."
+                  value={settings.social_links.facebook || ""}
+                  onChange={(e) =>
+                    setSettings((p) => ({
+                      ...p,
+                      social_links: { ...p.social_links, facebook: e.target.value },
+                    }))
+                  }
+                  className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="instagram">Instagram URL</Label>
+                <Input
+                  id="instagram"
+                  type="url"
+                  placeholder="https://instagram.com/..."
+                  value={settings.social_links.instagram || ""}
+                  onChange={(e) =>
+                    setSettings((p) => ({
+                      ...p,
+                      social_links: { ...p.social_links, instagram: e.target.value },
+                    }))
+                  }
+                  className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bug className="h-5 w-5" />
-              Debug & Utviklerverktøy
-            </CardTitle>
-            <CardDescription>Innstillinger for debugging og testing</CardDescription>
+        {/* Debug Settings */}
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                <Bug className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Debug & Utviklerverktøy</CardTitle>
+                <CardDescription>Innstillinger for debugging og testing</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
               <div className="space-y-0.5">
-                <Label htmlFor="show_construction_warning">Vis "Under konstruksjon" advarsel</Label>
-                <p className="text-sm text-muted-foreground">
+                <Label htmlFor="show_construction_warning" className="font-medium">Vis "Under konstruksjon" advarsel</Label>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Viser en popup-advarsel når brukere laster inn siden
                 </p>
               </div>
@@ -248,11 +306,11 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
               <div className="space-y-0.5">
-                <Label htmlFor="show_profile_ensemble_debug">Vis ensemble debug på profiler</Label>
-                <p className="text-sm text-muted-foreground">
-                  Viser detaljert informasjon om ensemble-tilhørighet på profilsider
+                <Label htmlFor="show_profile_ensemble_debug" className="font-medium">Vis ensemble debug på profiler</Label>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Viser detaljert informasjon om ensemble-tilhørighet
                 </p>
               </div>
               <Switch
@@ -265,22 +323,6 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
-
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Lagrer...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Lagre innstillinger
-              </>
-            )}
-          </Button>
-        </div>
       </form>
     </main>
   )

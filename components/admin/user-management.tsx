@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import QRCode from 'qrcode'
 import { 
   Users, 
@@ -23,7 +24,15 @@ import {
   Theater,
   Link,
   Unlink,
-  Mail
+  Mail,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  X,
+  Check,
+  AlertCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -56,21 +65,41 @@ interface Actor {
   user_id?: string
 }
 
+const USERS_PER_PAGE = 25
+const ACTORS_PER_PAGE = 25
+
+type RoleFilter = 'all' | 'customer' | 'staff' | 'admin' | 'superadmin'
+type ConnectionFilter = 'all' | 'connected' | 'not-connected'
+
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [actors, setActors] = useState<Actor[]>([])
   const [loading, setLoading] = useState(true)
   const [forbidden, setForbidden] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
   const router = useRouter()
+
+  // Search and filtering
+  const [userSearch, setUserSearch] = useState('')
+  const [actorSearch, setActorSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
+  const [connectionFilter, setConnectionFilter] = useState<ConnectionFilter>('all')
+  const [actorConnectionFilter, setActorConnectionFilter] = useState<ConnectionFilter>('all')
+
+  // Pagination
+  const [userPage, setUserPage] = useState(1)
+  const [actorPage, setActorPage] = useState(1)
+
+  // Dialogs
+  const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editingActor, setEditingActor] = useState<Actor | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [showActorDialog, setShowActorDialog] = useState(false)
   const [showBulkActorDialog, setShowBulkActorDialog] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // Forms
   const [userForm, setUserForm] = useState({
-  role: 'customer' as 'customer' | 'staff' | 'admin' | 'superadmin',
+    role: 'customer' as 'customer' | 'staff' | 'admin' | 'superadmin',
     actorId: '',
     profileSlug: ''
   })
@@ -86,22 +115,95 @@ export function UserManagement() {
 
   const [bulkActorText, setBulkActorText] = useState('')
   const [bulkActorResults, setBulkActorResults] = useState<{success: string[], errors: string[]}>({ success: [], errors: [] })
-
   const [userSearchQuery, setUserSearchQuery] = useState('')
-  const [showUserSearch, setShowUserSearch] = useState(false)
 
-  // Filter users for search
-  const filteredUsers = users.filter(user => {
+  // Verification and QR
+  const [sendingVerificationFor, setSendingVerificationFor] = useState<string | null>(null)
+  const [showRegistrationModalFor, setShowRegistrationModalFor] = useState<string | null>(null)
+  const [registrationToken, setRegistrationToken] = useState<string | null>(null)
+  const [registrationQr, setRegistrationQr] = useState<string | null>(null)
+  const [registrationExpires, setRegistrationExpires] = useState<string | null>(null)
+
+  // Filtered and paginated data
+  const filteredUsers = useMemo(() => {
+    let result = users
+
+    // Search filter
+    if (userSearch.trim()) {
+      const query = userSearch.toLowerCase()
+      result = result.filter(user =>
+        user.full_name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        user.actor?.name?.toLowerCase().includes(query)
+      )
+    }
+
+    // Role filter
+    if (roleFilter !== 'all') {
+      result = result.filter(user => user.role === roleFilter)
+    }
+
+    // Connection filter
+    if (connectionFilter === 'connected') {
+      result = result.filter(user => user.actor_id)
+    } else if (connectionFilter === 'not-connected') {
+      result = result.filter(user => !user.actor_id)
+    }
+
+    return result
+  }, [users, userSearch, roleFilter, connectionFilter])
+
+  const filteredActors = useMemo(() => {
+    let result = actors
+
+    // Search filter
+    if (actorSearch.trim()) {
+      const query = actorSearch.toLowerCase()
+      result = result.filter(actor =>
+        actor.name.toLowerCase().includes(query) ||
+        actor.contact_email?.toLowerCase().includes(query)
+      )
+    }
+
+    // Connection filter
+    if (actorConnectionFilter === 'connected') {
+      result = result.filter(actor => actor.user_id)
+    } else if (actorConnectionFilter === 'not-connected') {
+      result = result.filter(actor => !actor.user_id)
+    }
+
+    return result
+  }, [actors, actorSearch, actorConnectionFilter])
+
+  // Pagination
+  const totalUserPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE)
+  const totalActorPages = Math.ceil(filteredActors.length / ACTORS_PER_PAGE)
+  
+  const paginatedUsers = useMemo(() => {
+    const start = (userPage - 1) * USERS_PER_PAGE
+    return filteredUsers.slice(start, start + USERS_PER_PAGE)
+  }, [filteredUsers, userPage])
+
+  const paginatedActors = useMemo(() => {
+    const start = (actorPage - 1) * ACTORS_PER_PAGE
+    return filteredActors.slice(start, start + ACTORS_PER_PAGE)
+  }, [filteredActors, actorPage])
+
+  // Reset page when filters change
+  useEffect(() => { setUserPage(1) }, [userSearch, roleFilter, connectionFilter])
+  useEffect(() => { setActorPage(1) }, [actorSearch, actorConnectionFilter])
+
+  // Filter users for actor dialog search
+  const availableUsersForActor = useMemo(() => {
     const query = userSearchQuery.toLowerCase().trim()
-    const matchesSearch = !query || 
-      user.full_name.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query)
-    
-    // Only show users that don't have an actor_id, OR have this actor's id
-    const isAvailable = !user.actor_id || user.actor_id === editingActor?.id
-    
-    return matchesSearch && isAvailable
-  })
+    return users.filter(user => {
+      const matchesSearch = !query || 
+        user.full_name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
+      const isAvailable = !user.actor_id || user.actor_id === editingActor?.id
+      return matchesSearch && isAvailable
+    })
+  }, [users, userSearchQuery, editingActor])
 
   useEffect(() => {
     loadData()
@@ -110,19 +212,14 @@ export function UserManagement() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Load users (admin-only)
       const usersResponse = await fetch('/api/admin/users')
-
+      
       if (usersResponse.status === 401) {
-        // Not logged in — redirect to login
-        setLoading(false)
         router.push('/logg-inn')
         return
       }
 
       if (usersResponse.status === 403) {
-        // Forbidden — user isn't an admin or not verified
-        setLoading(false)
         setForbidden(true)
         setUsers([])
         return
@@ -131,7 +228,6 @@ export function UserManagement() {
       const usersData = await usersResponse.json()
       setUsers(usersData.users || [])
 
-      // Load all actors
       const actorsResponse = await fetch('/api/actors')
       const actorsData = await actorsResponse.json()
       setActors(actorsData.actors || [])
@@ -175,12 +271,10 @@ export function UserManagement() {
 
   const handleUpdateActor = async () => {
     if (!editingActor) {
-      // Create new actor
       await handleCreateActor()
       return
     }
 
-    // Validate required fields for updates too
     if (!actorForm.name.trim()) {
       toast.error("Navn er påkrevd")
       return
@@ -215,13 +309,11 @@ export function UserManagement() {
   }
 
   const handleCreateActor = async () => {
-    // Validate required fields
     if (!actorForm.name.trim()) {
       toast.error("Navn er påkrevd")
       return
     }
 
-    // Check for duplicate name
     if (actors.some(actor => actor.name.toLowerCase() === actorForm.name.toLowerCase())) {
       toast.error("En skuespiller med dette navnet eksisterer allerede")
       return
@@ -274,7 +366,6 @@ export function UserManagement() {
     const results = { success: [] as string[], errors: [] as string[] }
 
     for (const name of names) {
-      // Check for duplicate
       if (actors.some(actor => actor.name.toLowerCase() === name.toLowerCase())) {
         results.errors.push(`${name} - eksisterer allerede`)
         continue
@@ -284,10 +375,7 @@ export function UserManagement() {
         const response = await fetch('/api/actors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: name,
-            user_id: null
-          })
+          body: JSON.stringify({ name, user_id: null })
         })
 
         if (response.ok) {
@@ -320,9 +408,7 @@ export function UserManagement() {
     if (!confirm("Er du sikker på at du vil slette denne skuespilleren?")) return
 
     try {
-      const response = await fetch(`/api/actors/${actorId}`, {
-        method: 'DELETE'
-      })
+      const response = await fetch(`/api/actors/${actorId}`, { method: 'DELETE' })
 
       if (response.ok) {
         toast.success("Skuespiller slettet")
@@ -339,8 +425,7 @@ export function UserManagement() {
 
   const openUserDialog = (user: User) => {
     setEditingUser(user)
-    // Ensure role is one of the valid values, default to customer if not
-  const validRole = ['customer', 'staff', 'admin', 'superadmin'].includes(user.role) ? user.role : 'customer'
+    const validRole = ['customer', 'staff', 'admin', 'superadmin'].includes(user.role) ? user.role : 'customer'
     setUserForm({
       role: validRole,
       actorId: user.actor_id || 'none',
@@ -377,30 +462,6 @@ export function UserManagement() {
     setShowActorDialog(true)
   }
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin': return Crown
-      case 'superadmin': return Crown
-      case 'staff': return Shield
-      default: return User
-    }
-  }
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800'
-      case 'superadmin': return 'bg-purple-100 text-purple-800'
-      case 'staff': return 'bg-blue-100 text-blue-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const [sendingVerificationFor, setSendingVerificationFor] = useState<string | null>(null)
-  const [showRegistrationModalFor, setShowRegistrationModalFor] = useState<string | null>(null)
-  const [registrationToken, setRegistrationToken] = useState<string | null>(null)
-  const [registrationQr, setRegistrationQr] = useState<string | null>(null)
-  const [registrationExpires, setRegistrationExpires] = useState<string | null>(null)
-
   const handleSendVerification = async (userId: string) => {
     if (!confirm('Send verifikasjonskode til denne administratoren?')) return
     setSendingVerificationFor(userId)
@@ -418,18 +479,13 @@ export function UserManagement() {
       }
 
       if (res.status === 429) {
-        toast.error('For mange forespørsler mot denne brukeren. Prøv igjen senere.')
+        toast.error('For mange forespørsler. Prøv igjen senere.')
         return
       }
 
       const data = await res.json()
       if (res.ok && data.success) {
-        if (data.adminUuidCreated) {
-          toast.success('Admin UUID opprettet og verifikasjonskode sendt')
-          console.log('Created adminUuid:', data.adminUuid)
-        } else {
-          toast.success('Verifikasjonskode sendt')
-        }
+        toast.success(data.adminUuidCreated ? 'Admin UUID opprettet og verifikasjonskode sendt' : 'Verifikasjonskode sendt')
       } else {
         toast.error(`Kunne ikke sende kode: ${data.error || 'ukjent feil'}`)
       }
@@ -441,281 +497,469 @@ export function UserManagement() {
     }
   }
 
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'superadmin':
+        return <Badge className="bg-purple-600 hover:bg-purple-700"><Crown className="h-3 w-3 mr-1" />Superadmin</Badge>
+      case 'admin':
+        return <Badge className="bg-red-600 hover:bg-red-700"><Crown className="h-3 w-3 mr-1" />Admin</Badge>
+      case 'staff':
+        return <Badge className="bg-blue-600 hover:bg-blue-700"><Shield className="h-3 w-3 mr-1" />Ansatt</Badge>
+      default:
+        return <Badge variant="secondary"><User className="h-3 w-3 mr-1" />Kunde</Badge>
+    }
+  }
+
+  const clearFilters = () => {
+    setUserSearch('')
+    setRoleFilter('all')
+    setConnectionFilter('all')
+    setUserPage(1)
+  }
+
+  const clearActorFilters = () => {
+    setActorSearch('')
+    setActorConnectionFilter('all')
+    setActorPage(1)
+  }
+
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center">Laster...</div>
-        </CardContent>
-      </Card>
+      <div className="p-8 flex items-center justify-center">
+        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
     )
   }
 
   if (forbidden) {
     return (
-      <Card>
+      <Card className="border-destructive/50">
         <CardHeader>
-          <CardTitle>Ingen tilgang</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            Ingen tilgang
+          </CardTitle>
           <CardDescription>Du må være en verifisert administrator for å se denne siden.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="p-4">
-            <p className="mb-4">Hvis du mener dette er en feil, kontakt en administrator for å få verifisert kontoen din.</p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => router.push('/')}>Gå tilbake</Button>
-              <Button onClick={() => router.push('/logg-inn')}>Logg inn</Button>
-            </div>
+          <p className="mb-4 text-sm text-muted-foreground">Kontakt en administrator for å få verifisert kontoen din.</p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => router.push('/')}>Tilbake</Button>
+            <Button onClick={() => router.push('/logg-inn')}>Logg inn</Button>
           </div>
         </CardContent>
       </Card>
     )
   }
 
+  const hasActiveFilters = userSearch || roleFilter !== 'all' || connectionFilter !== 'all'
+  const hasActiveActorFilters = actorSearch || actorConnectionFilter !== 'all'
+
   return (
     <div className="space-y-6">
-      {/* Connection Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Link className="h-5 w-5" />
-            Koblingsoversikt
-          </CardTitle>
-          <CardDescription>
-            Oversikt over brukere og skuespillere som er koblet sammen
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{users.length}</div>
-              <div className="text-sm text-blue-800">Totalt brukere</div>
-            </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">{actors.length}</div>
-              <div className="text-sm text-purple-800">Totalt skuespillere</div>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{users.filter(u => u.actor_id).length}</div>
-              <div className="text-sm text-green-800">Koblede brukere</div>
-            </div>
-          </div>
-          
-          {users.filter(u => u.actor_id).length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium mb-2">Aktive koblinger:</h4>
-              <div className="space-y-2">
-                {users.filter(u => u.actor_id).map(user => (
-                  <div key={user.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                    <span><strong>{user.full_name}</strong> ({user.email})</span>
-                    <span className="flex items-center gap-1 text-purple-600">
-                      <Theater className="h-3 w-3" />
-                      {user.actor?.name}
-                    </span>
-                  </div>
-                ))}
+      {/* Stats Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200 dark:border-blue-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/20 rounded-lg">
+                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{users.length}</p>
+                <p className="text-sm text-blue-600/80 dark:text-blue-400/80">Brukere</p>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/50 dark:to-purple-900/30 border-purple-200 dark:border-purple-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-500/20 rounded-lg">
+                <Theater className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{actors.length}</p>
+                <p className="text-sm text-purple-600/80 dark:text-purple-400/80">Skuespillere</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/30 border-green-200 dark:border-green-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-500/20 rounded-lg">
+                <Link className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">{users.filter(u => u.actor_id).length}</p>
+                <p className="text-sm text-green-600/80 dark:text-green-400/80">Koblede</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/50 dark:to-amber-900/30 border-amber-200 dark:border-amber-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <Crown className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{users.filter(u => u.role === 'admin' || u.role === 'superadmin').length}</p>
+                <p className="text-sm text-amber-600/80 dark:text-amber-400/80">Admins</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Users Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Brukeradministrasjon
-          </CardTitle>
-          <CardDescription>
-            Administrer brukerroller og koble brukere til skuespillerprofiler
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {users.map(user => {
-              const RoleIcon = getRoleIcon(user.role)
-              
-              return (
-                <div key={user.id} className={`flex items-center justify-between p-4 border rounded-lg ${user.actor_id ? 'bg-green-50 border-green-200' : ''}`}>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={user.actor?.photo_url} />
-                      <AvatarFallback>{user.full_name.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <div className="flex items-center gap-2" title={user.actor_id ? "Koblet til skuespiller" : "Ikke koblet til skuespiller"}>
-                          <span className="font-medium">{user.full_name}</span>
-                          {user.actor && (
-                            <Theater className="h-4 w-4 text-purple-600" />
-                          )}
-                          {user.profile_slug && (
-                            <Badge variant="outline" className="text-xs">
-                              Profil: {user.profile_slug}
-                            </Badge>
-                          )}
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Brukere ({filteredUsers.length})
+          </TabsTrigger>
+          <TabsTrigger value="actors" className="flex items-center gap-2">
+            <Theater className="h-4 w-4" />
+            Skuespillere ({filteredActors.length})
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Users Tab */}
+        <TabsContent value="users" className="mt-6">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle>Brukere</CardTitle>
+                  <CardDescription>
+                    Viser {paginatedUsers.length} av {filteredUsers.length} brukere
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={loadData}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Oppdater
+                </Button>
+              </div>
+
+              {/* Search and Filters */}
+              <div className="flex flex-col md:flex-row gap-3 pt-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Søk på navn, e-post eller skuespiller..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as RoleFilter)}>
+                  <SelectTrigger className="w-full md:w-40">
+                    <SelectValue placeholder="Rolle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle roller</SelectItem>
+                    <SelectItem value="customer">Kunder</SelectItem>
+                    <SelectItem value="staff">Ansatte</SelectItem>
+                    <SelectItem value="admin">Admins</SelectItem>
+                    <SelectItem value="superadmin">Superadmins</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={connectionFilter} onValueChange={(v) => setConnectionFilter(v as ConnectionFilter)}>
+                  <SelectTrigger className="w-full md:w-40">
+                    <SelectValue placeholder="Kobling" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="connected">Koblede</SelectItem>
+                    <SelectItem value="not-connected">Ikke koblet</SelectItem>
+                  </SelectContent>
+                </Select>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="icon" onClick={clearFilters} title="Nullstill filtre">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {/* User List */}
+              <div className="divide-y">
+                {paginatedUsers.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    {hasActiveFilters ? 'Ingen brukere matcher filtrene' : 'Ingen brukere funnet'}
+                  </div>
+                ) : (
+                  paginatedUsers.map(user => (
+                    <div 
+                      key={user.id} 
+                      className={cn(
+                        "flex items-center justify-between p-4 hover:bg-muted/50 transition-colors",
+                        user.actor_id && "bg-green-50/50 dark:bg-green-950/20"
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <Avatar className="h-10 w-10 shrink-0">
+                          <AvatarImage src={user.actor?.photo_url} />
+                          <AvatarFallback className="text-sm">{user.full_name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium truncate">{user.full_name}</span>
+                            {user.actor && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 shrink-0">
+                                <Theater className="h-3 w-3 mr-1" />
+                                {user.actor.name}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                         </div>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
-                      {user.actor && (
-                        <p className="text-sm text-purple-600 font-medium">→ Skuespiller: {user.actor.name}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={cn("flex items-center gap-1", getRoleColor(user.role))}>
-                      <RoleIcon className="h-3 w-3" />
-                      {user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Ansatt' : 'Kunde'}
-                    </Badge>
-                    {user.role === 'admin' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSendVerification(user.id)}
-                        disabled={sendingVerificationFor === user.id}
-                        title="Send verifikasjonskode til denne administratoren"
-                      >
-                        <Mail className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {user.role === 'admin' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            setShowRegistrationModalFor(user.id)
-                            const res = await fetch('/api/admin/devices/create-registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceName: `Initial device for ${user.email}` }) })
-                            const data = await res.json()
-                            if (!res.ok) throw new Error(data.error || 'Kunne ikke generere QR')
-                            setRegistrationToken(data.token)
-                            setRegistrationExpires(data.expiresAt)
-                            const uri = await QRCode.toDataURL(data.token)
-                            setRegistrationQr(uri)
-                          } catch (e: any) {
-                            console.error(e)
-                            toast.error(e.message || 'Kunne ikke generere QR')
-                            setShowRegistrationModalFor(null)
-                          }
-                        }}
-                        title="Generer onboarding QR"
-                      >
-                        <Users className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openUserDialog(user)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Actors Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Theater className="h-5 w-5" />
-            Skuespillere
-          </CardTitle>
-          <CardDescription>
-            Administrer skuespillerprofiler og koble dem til brukere
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex gap-2">
-            <Button onClick={openNewActorDialog} className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Ny skuespiller
-            </Button>
-            <Button onClick={() => setShowBulkActorDialog(true)} variant="outline" className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Opprett flere
-            </Button>
-          </div>
-          
-          <div className="space-y-4">
-            {actors.map(actor => {
-              const linkedUser = users.find(u => u.actor_id === actor.id)
-              
-              return (
-                <div key={actor.id} className={`flex items-center justify-between p-4 border rounded-lg ${linkedUser ? 'bg-blue-50 border-blue-200' : ''}`}>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={actor.photo_url} />
-                      <AvatarFallback>{actor.name.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2" title={linkedUser ? "Koblet til bruker" : "Ikke koblet til bruker"}>
-                        <span className="font-medium">{actor.name}</span>
-                        {linkedUser && (
-                          <Link className="h-4 w-4 text-green-600" />
-                        )}
                       </div>
-                      {actor.bio && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{actor.bio}</p>
-                      )}
-                      {linkedUser && (
-                        <p className="text-sm text-green-600 font-medium">→ Bruker: {linkedUser.full_name} ({linkedUser.email})</p>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {getRoleBadge(user.role)}
+                        {user.role === 'admin' && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleSendVerification(user.id)}
+                              disabled={sendingVerificationFor === user.id}
+                              title="Send verifikasjonskode"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={async () => {
+                                setShowRegistrationModalFor(user.id)
+                                try {
+                                  const res = await fetch('/api/admin/devices/create-registration', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ deviceName: `Device for ${user.email}` })
+                                  })
+                                  const data = await res.json()
+                                  if (!res.ok) throw new Error(data.error)
+                                  setRegistrationToken(data.token)
+                                  setRegistrationExpires(data.expiresAt)
+                                  const uri = await QRCode.toDataURL(data.token)
+                                  setRegistrationQr(uri)
+                                } catch (e: any) {
+                                  toast.error(e.message || 'Kunne ikke generere QR')
+                                  setShowRegistrationModalFor(null)
+                                }
+                              }}
+                              title="Generer onboarding QR"
+                            >
+                              <Users className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openUserDialog(user)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  ))
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalUserPages > 1 && (
+                <div className="flex items-center justify-between p-4 border-t bg-muted/30">
+                  <p className="text-sm text-muted-foreground">
+                    Side {userPage} av {totalUserPages}
+                  </p>
+                  <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => openActorDialog(actor)}
+                      onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                      disabled={userPage === 1}
                     >
-                      <Edit className="h-4 w-4" />
+                      <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteActor(actor.id)}
-                      className="text-red-600 hover:text-red-700"
+                      onClick={() => setUserPage(p => Math.min(totalUserPages, p + 1))}
+                      disabled={userPage === totalUserPages}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Actors Tab */}
+        <TabsContent value="actors" className="mt-6">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle>Skuespillere</CardTitle>
+                  <CardDescription>
+                    Viser {paginatedActors.length} av {filteredActors.length} skuespillere
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={openNewActorDialog} size="sm">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Ny
+                  </Button>
+                  <Button onClick={() => setShowBulkActorDialog(true)} variant="outline" size="sm">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Opprett flere
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search and Filters */}
+              <div className="flex flex-col md:flex-row gap-3 pt-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Søk på navn eller e-post..."
+                    value={actorSearch}
+                    onChange={(e) => setActorSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={actorConnectionFilter} onValueChange={(v) => setActorConnectionFilter(v as ConnectionFilter)}>
+                  <SelectTrigger className="w-full md:w-40">
+                    <SelectValue placeholder="Kobling" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="connected">Koblede</SelectItem>
+                    <SelectItem value="not-connected">Ikke koblet</SelectItem>
+                  </SelectContent>
+                </Select>
+                {hasActiveActorFilters && (
+                  <Button variant="ghost" size="icon" onClick={clearActorFilters} title="Nullstill filtre">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {/* Actor List */}
+              <div className="divide-y">
+                {paginatedActors.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    {hasActiveActorFilters ? 'Ingen skuespillere matcher filtrene' : 'Ingen skuespillere funnet'}
+                  </div>
+                ) : (
+                  paginatedActors.map(actor => {
+                    const linkedUser = users.find(u => u.actor_id === actor.id)
+                    return (
+                      <div 
+                        key={actor.id} 
+                        className={cn(
+                          "flex items-center justify-between p-4 hover:bg-muted/50 transition-colors",
+                          linkedUser && "bg-blue-50/50 dark:bg-blue-950/20"
+                        )}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <Avatar className="h-10 w-10 shrink-0">
+                            <AvatarImage src={actor.photo_url} />
+                            <AvatarFallback className="text-sm">{actor.name.charAt(0).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium truncate">{actor.name}</span>
+                              {linkedUser && (
+                                <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 shrink-0">
+                                  <Link className="h-3 w-3 mr-1" />
+                                  {linkedUser.full_name}
+                                </Badge>
+                              )}
+                            </div>
+                            {actor.bio && (
+                              <p className="text-sm text-muted-foreground truncate">{actor.bio}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openActorDialog(actor)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteActor(actor.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalActorPages > 1 && (
+                <div className="flex items-center justify-between p-4 border-t bg-muted/30">
+                  <p className="text-sm text-muted-foreground">
+                    Side {actorPage} av {totalActorPages}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActorPage(p => Math.max(1, p - 1))}
+                      disabled={actorPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActorPage(p => Math.min(totalActorPages, p + 1))}
+                      disabled={actorPage === totalActorPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* User Edit Dialog */}
       <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rediger bruker</DialogTitle>
-            <DialogDescription>
-              Endre rolle og koble til skuespillerprofil
-            </DialogDescription>
+            <DialogDescription>Endre rolle og koble til skuespillerprofil</DialogDescription>
           </DialogHeader>
           
           {editingUser && (
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="user-name">Navn</Label>
-                <Input id="user-name" value={editingUser.full_name} disabled />
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{editingUser.full_name}</p>
+                <p className="text-sm text-muted-foreground">{editingUser.email}</p>
               </div>
               
-              <div>
-                <Label htmlFor="user-email">E-post</Label>
-                <Input id="user-email" value={editingUser.email} disabled />
-              </div>
-              
-              <div>
-                <Label htmlFor="user-role">Rolle</Label>
+              <div className="space-y-2">
+                <Label>Rolle</Label>
                 <Select value={userForm.role} onValueChange={(value: any) => setUserForm({ ...userForm, role: value })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Velg rolle" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="customer">Kunde</SelectItem>
@@ -726,8 +970,8 @@ export function UserManagement() {
                 </Select>
               </div>
               
-              <div>
-                <Label htmlFor="actor-link">Koble til skuespiller</Label>
+              <div className="space-y-2">
+                <Label>Koble til skuespiller</Label>
                 <Select value={userForm.actorId} onValueChange={(value) => setUserForm({ ...userForm, actorId: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Velg skuespiller" />
@@ -735,18 +979,15 @@ export function UserManagement() {
                   <SelectContent>
                     <SelectItem value="none">Ingen kobling</SelectItem>
                     {actors.map(actor => (
-                      <SelectItem key={actor.id} value={actor.id}>
-                        {actor.name}
-                      </SelectItem>
+                      <SelectItem key={actor.id} value={actor.id}>{actor.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               
-              <div>
-                <Label htmlFor="profile-slug">Profil-slug (valgfritt)</Label>
+              <div className="space-y-2">
+                <Label>Profil-slug (valgfritt)</Label>
                 <Input 
-                  id="profile-slug" 
                   value={userForm.profileSlug}
                   onChange={(e) => setUserForm({ ...userForm, profileSlug: e.target.value })}
                   placeholder="f.eks. john-doe"
@@ -756,41 +997,43 @@ export function UserManagement() {
           )}
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUserDialog(false)}>
-              Avbryt
-            </Button>
-            <Button onClick={handleUpdateUser}>
-              Lagre endringer
-            </Button>
+            <Button variant="outline" onClick={() => setShowUserDialog(false)}>Avbryt</Button>
+            <Button onClick={handleUpdateUser}>Lagre</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Actor Edit Dialog */}
       <Dialog open={showActorDialog} onOpenChange={setShowActorDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingActor ? 'Rediger skuespiller' : 'Ny skuespiller'}</DialogTitle>
-            <DialogDescription>
-              {editingActor ? 'Oppdater skuespillerinformasjon' : 'Opprett ny skuespillerprofil'}
-            </DialogDescription>
+            <DialogDescription>{editingActor ? 'Oppdater informasjon' : 'Opprett ny skuespillerprofil'}</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="actor-name">Navn</Label>
-              <Input 
-                id="actor-name" 
-                value={actorForm.name}
-                onChange={(e) => setActorForm({ ...actorForm, name: e.target.value })}
-                placeholder="Skuespillernavn"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Navn *</Label>
+                <Input 
+                  value={actorForm.name}
+                  onChange={(e) => setActorForm({ ...actorForm, name: e.target.value })}
+                  placeholder="Skuespillernavn"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Foto URL</Label>
+                <Input 
+                  value={actorForm.photo_url}
+                  onChange={(e) => setActorForm({ ...actorForm, photo_url: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
             </div>
             
-            <div>
-              <Label htmlFor="actor-bio">Biografi</Label>
+            <div className="space-y-2">
+              <Label>Biografi</Label>
               <Textarea 
-                id="actor-bio" 
                 value={actorForm.bio}
                 onChange={(e) => setActorForm({ ...actorForm, bio: e.target.value })}
                 placeholder="Kort biografi..."
@@ -798,107 +1041,71 @@ export function UserManagement() {
               />
             </div>
             
-            <div>
-              <Label htmlFor="actor-photo">Foto URL</Label>
-              <Input 
-                id="actor-photo" 
-                value={actorForm.photo_url}
-                onChange={(e) => setActorForm({ ...actorForm, photo_url: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="actor-email">Kontakt e-post</Label>
-              <Input 
-                id="actor-email" 
-                type="email"
-                value={actorForm.contact_email}
-                onChange={(e) => setActorForm({ ...actorForm, contact_email: e.target.value })}
-                placeholder="skuespiller@example.com"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="actor-phone">Kontakt telefon</Label>
-              <Input 
-                id="actor-phone" 
-                value={actorForm.contact_phone}
-                onChange={(e) => setActorForm({ ...actorForm, contact_phone: e.target.value })}
-                placeholder="+47 123 45 678"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="user-link">Koble til bruker</Label>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Input
-                  placeholder="Søk etter bruker (navn eller e-post)..."
-                  value={userSearchQuery}
-                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                <Label>E-post</Label>
+                <Input 
+                  type="email"
+                  value={actorForm.contact_email}
+                  onChange={(e) => setActorForm({ ...actorForm, contact_email: e.target.value })}
+                  placeholder="skuespiller@example.com"
                 />
-                <div className="max-h-60 overflow-y-auto border rounded-md bg-card text-card-foreground">
+              </div>
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input 
+                  value={actorForm.contact_phone}
+                  onChange={(e) => setActorForm({ ...actorForm, contact_phone: e.target.value })}
+                  placeholder="+47 123 45 678"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Koble til bruker</Label>
+              <Input
+                placeholder="Søk etter bruker..."
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+              />
+              <div className="h-40 border rounded-md overflow-y-auto">
+                <div
+                  className={cn(
+                    "p-3 cursor-pointer hover:bg-muted transition-colors border-b flex items-center gap-2",
+                    actorForm.user_id === "none" && "bg-primary/10"
+                  )}
+                  onClick={() => setActorForm({ ...actorForm, user_id: "none" })}
+                >
+                  <Unlink className="h-4 w-4" />
+                  <span>Ingen kobling</span>
+                  {actorForm.user_id === "none" && <Check className="h-4 w-4 ml-auto text-primary" />}
+                </div>
+                {availableUsersForActor.map(user => (
                   <div
+                    key={user.id}
                     className={cn(
-                      "p-3 cursor-pointer hover:bg-gray-100 transition-colors border-b",
-                      actorForm.user_id === "none" && "bg-blue-100 font-semibold"
+                      "p-3 cursor-pointer hover:bg-muted transition-colors border-b",
+                      actorForm.user_id === user.id && "bg-primary/10"
                     )}
-                    onClick={() => setActorForm({ ...actorForm, user_id: "none" })}
+                    onClick={() => setActorForm({ ...actorForm, user_id: user.id })}
                   >
-                    <div className="flex items-center gap-2">
-                      <Unlink className="h-4 w-4" />
-                      Ingen kobling
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{user.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      {actorForm.user_id === user.id && <Check className="h-4 w-4 text-primary" />}
                     </div>
                   </div>
-                  {filteredUsers.length === 0 && userSearchQuery.trim() ? (
-                    <div className="p-4 text-center text-muted-foreground text-sm">
-                      Ingen brukere funnet
-                    </div>
-                  ) : (
-                    filteredUsers.map(user => (
-                      <div
-                        key={user.id}
-                        className={cn(
-                          "p-3 cursor-pointer hover:bg-gray-100 transition-colors border-b last:border-b-0",
-                          actorForm.user_id === user.id && "bg-blue-100"
-                        )}
-                        onClick={() => setActorForm({ ...actorForm, user_id: user.id })}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium">{user.full_name}</div>
-                            <div className="text-sm text-gray-600">{user.email}</div>
-                          </div>
-                          {actorForm.user_id === user.id && (
-                            <Link className="h-4 w-4 text-blue-600" />
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                {userSearchQuery.trim() === '' && (
-                  <p className="text-sm text-muted-foreground">
-                    Viser {filteredUsers.length} tilgjengelige bruker{filteredUsers.length !== 1 ? 'e' : ''}
-                  </p>
-                )}
+                ))}
               </div>
             </div>
           </div>
           
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowActorDialog(false)}
-              disabled={submitting}
-            >
-              Avbryt
-            </Button>
-            <Button 
-              onClick={handleUpdateActor}
-              disabled={submitting}
-            >
-              {submitting ? 'Lagrer...' : (editingActor ? 'Lagre endringer' : 'Opprett skuespiller')}
+            <Button variant="outline" onClick={() => setShowActorDialog(false)} disabled={submitting}>Avbryt</Button>
+            <Button onClick={handleUpdateActor} disabled={submitting}>
+              {submitting ? 'Lagrer...' : (editingActor ? 'Lagre' : 'Opprett')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -909,39 +1116,34 @@ export function UserManagement() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Opprett flere skuespillere</DialogTitle>
-            <DialogDescription>
-              Skriv ett navn per linje. Duplikater hoppes over.
-            </DialogDescription>
+            <DialogDescription>Skriv ett navn per linje. Duplikater hoppes over.</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div>
-              <textarea
-                className="w-full min-h-[300px] p-3 border rounded-md font-mono text-sm"
-                placeholder="Ola Nordmann&#10;Kari Hansen&#10;Per Olsen"
-                value={bulkActorText}
-                onChange={(e) => setBulkActorText(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
+            <textarea
+              className="w-full min-h-[300px] p-3 border rounded-md font-mono text-sm bg-background"
+              placeholder="Ola Nordmann&#10;Kari Hansen&#10;Per Olsen"
+              value={bulkActorText}
+              onChange={(e) => setBulkActorText(e.target.value)}
+              disabled={submitting}
+            />
 
-            {bulkActorResults && (bulkActorResults.success.length > 0 || bulkActorResults.errors.length > 0) && (
-              <div className="space-y-2 p-4 bg-gray-50 rounded-md max-h-[200px] overflow-y-auto">
+            {(bulkActorResults.success.length > 0 || bulkActorResults.errors.length > 0) && (
+              <div className="space-y-2 p-4 bg-muted rounded-md max-h-[200px] overflow-y-auto">
                 {bulkActorResults.success.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-green-700 mb-2">Opprettet ({bulkActorResults.success.length}):</h4>
-                    <ul className="text-sm text-green-600 space-y-1">
+                    <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">Opprettet ({bulkActorResults.success.length}):</h4>
+                    <ul className="text-sm text-green-600 dark:text-green-500 space-y-1">
                       {bulkActorResults.success.map((name, idx) => (
                         <li key={idx}>✓ {name}</li>
                       ))}
                     </ul>
                   </div>
                 )}
-                
                 {bulkActorResults.errors.length > 0 && (
                   <div className="mt-3">
-                    <h4 className="font-semibold text-red-700 mb-2">Feilet ({bulkActorResults.errors.length}):</h4>
-                    <ul className="text-sm text-red-600 space-y-1">
+                    <h4 className="font-semibold text-red-700 dark:text-red-400 mb-2">Feilet ({bulkActorResults.errors.length}):</h4>
+                    <ul className="text-sm text-red-600 dark:text-red-500 space-y-1">
                       {bulkActorResults.errors.map((error, idx) => (
                         <li key={idx}>✗ {error}</li>
                       ))}
@@ -964,40 +1166,37 @@ export function UserManagement() {
             >
               Lukk
             </Button>
-            <Button 
-              onClick={handleBulkActorCreation}
-              disabled={submitting || !bulkActorText.trim()}
-            >
+            <Button onClick={handleBulkActorCreation} disabled={submitting || !bulkActorText.trim()}>
               {submitting ? 'Oppretter...' : 'Opprett alle'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Registration QR Modal (admin-generated) */}
+      {/* Registration QR Modal */}
       <Dialog open={!!showRegistrationModalFor} onOpenChange={(open) => { if (!open) { setShowRegistrationModalFor(null); setRegistrationToken(null); setRegistrationQr(null); setRegistrationExpires(null) } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Onboarding QR</DialogTitle>
-            <DialogDescription>
-              Vis denne QR-koden til den nye administratoren. Den er gyldig i noen minutter.
-            </DialogDescription>
+            <DialogDescription>Vis denne QR-koden til den nye administratoren.</DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
+          <div className="flex flex-col items-center gap-4 py-4">
             {registrationQr ? (
-              <div className="flex flex-col items-center gap-2">
-                <img src={registrationQr} alt="Onboarding QR" className="w-64 h-64 object-contain" />
-                <p className="text-sm text-muted-foreground">Gyldig til: {registrationExpires ? new Date(registrationExpires).toLocaleString('nb-NO') : '—'}</p>
-                <p className="text-xs text-muted-foreground">QR inneholder en kort registrerings-token som må skannes med en allerede betrodd enhet.</p>
-              </div>
+              <>
+                <img src={registrationQr} alt="Onboarding QR" className="w-64 h-64 object-contain rounded-lg border" />
+                <p className="text-sm text-muted-foreground">
+                  Gyldig til: {registrationExpires ? new Date(registrationExpires).toLocaleString('nb-NO') : '—'}
+                </p>
+              </>
             ) : (
-              <p>Genererer QR…</p>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Genererer QR…
+              </div>
             )}
           </div>
-
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setShowRegistrationModalFor(null); setRegistrationToken(null); setRegistrationQr(null); setRegistrationExpires(null) }}>Lukk</Button>
+            <Button variant="outline" onClick={() => { setShowRegistrationModalFor(null); setRegistrationToken(null); setRegistrationQr(null); setRegistrationExpires(null) }}>Lukk</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

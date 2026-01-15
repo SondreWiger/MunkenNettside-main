@@ -1,8 +1,7 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import crypto from 'crypto'
 
 export async function createAdminDevice(supabase: any, userId: string, deviceName?: string, deviceInfo?: any) {
-  const deviceToken = crypto.randomUUID()
+  const deviceToken = globalThis.crypto.randomUUID()
   const { data, error } = await supabase
     .from('admin_devices')
     .insert({ user_id: userId, device_token: deviceToken, device_name: deviceName || null, device_info: deviceInfo || null })

@@ -20,12 +20,24 @@ export async function POST(request: Request) {
 
     const { data: userRow, error } = await supabase
       .from('users')
-      .select('id, email, full_name, admin_uuid, admin_verified')
+      .select('id, email, full_name, admin_uuid, admin_verified, admin_uuid_expires_at')
       .eq('id', currentUser.id)
       .single()
     if (error || !userRow) {
       console.error('request-code: user row not found for', { currentUserId: currentUser.id, error })
       return NextResponse.json({ error: 'User row not found' }, { status: 404 })
+    }
+
+    // Check if admin UUID has expired
+    if (userRow.admin_uuid_expires_at) {
+      const expiresAt = new Date(userRow.admin_uuid_expires_at)
+      const now = new Date()
+      
+      if (now > expiresAt) {
+        return NextResponse.json({ 
+          error: 'Admin UUID has expired. Contact superadmin for a new UUID.' 
+        }, { status: 400 })
+      }
     }
 
     console.log('request-code:', { currentUserId: currentUser.id, adminUuidProvided: adminUuid || null, userAdminUuid: userRow.admin_uuid || null, adminVerified: userRow.admin_verified })

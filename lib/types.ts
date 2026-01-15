@@ -102,6 +102,9 @@ export interface Ensemble {
   recording_price_nok: number
   participation_price_nok: number
   default_ticket_price_nok: number
+  max_actors?: number | null
+  waitlist_enabled?: boolean
+  auto_accept_enabled?: boolean
   is_published: boolean
   featured: boolean
   archived?: boolean
@@ -121,6 +124,8 @@ export interface Kurs {
   duration_weeks?: number
   max_participants: number
   current_participants: number
+  waitlist_enabled?: boolean
+  auto_accept_enabled?: boolean
   thumbnail_url?: string
   banner_url?: string
   gallery_images: string[]

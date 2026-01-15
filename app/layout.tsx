@@ -4,6 +4,7 @@ import { Inter, Playfair_Display } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/sonner"
 import { ConstructionWarning } from "@/components/construction-warning"
+import { CookieConsentBanner } from "@/components/layout/cookie-consent"
 import "./globals.css"
 import { getThemeTokensServer } from '@/lib/theme/getThemeTokensServer'
 import ClientTheme from '@/components/theme/client-theme'
@@ -45,6 +46,7 @@ export default async function RootLayout({
       <ClientTheme />
         <ConstructionWarning />
         {children}
+        <CookieConsentBanner />
         <Toaster />
         <Analytics />
       </body>

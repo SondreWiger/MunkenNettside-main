@@ -5,13 +5,14 @@ import type React from "react"
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Eye, EyeOff, Loader2, CheckCircle, User, Users, Baby } from "lucide-react"
+import { Eye, EyeOff, Loader2, CheckCircle, User, Users, Baby, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type AccountType = "standalone" | "parent" | "kid"
@@ -29,6 +30,9 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [adminUuid, setAdminUuid] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
+  const [acceptedMarketing, setAcceptedMarketing] = useState(false)
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/dashboard"
   const supabase = getSupabaseBrowserClient()
@@ -57,6 +61,13 @@ export function RegisterForm() {
 
     if (password.length < 8) {
       setError("Passordet må være minst 8 tegn")
+      setIsLoading(false)
+      return
+    }
+
+    // Validate GDPR consent
+    if (!acceptedTerms || !acceptedPrivacy) {
+      setError("Du må akseptere vilkårene og personvernerklæringen for å opprette konto")
       setIsLoading(false)
       return
     }
@@ -249,8 +260,18 @@ export function RegisterForm() {
             </div>
 
             <div>
-              <Label htmlFor="adminUuid">Admin UUID (valgfritt)</Label>
-              <Input id="adminUuid" type="text" placeholder="Skriv inn Admin UUID hvis du har mottatt en" value={adminUuid} onChange={(e) => setAdminUuid(e.target.value)} className="h-12 text-base" />
+              <Label htmlFor="adminUuid">Admin UUID (påkrevd for administratorkontoer)</Label>
+              <Input 
+                id="adminUuid" 
+                type="text" 
+                placeholder="Skriv inn Admin UUID hvis du skal opprette en administratorkonto" 
+                value={adminUuid} 
+                onChange={(e) => setAdminUuid(e.target.value)} 
+                className="h-12 text-base" 
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Kun nødvendig hvis du har fått en Admin UUID fra superadmin for å opprette administratorkonto.
+              </p>
             </div>
 
             <div>
@@ -307,8 +328,72 @@ export function RegisterForm() {
               </div>
             )}
 
+            {/* GDPR Consent Section */}
+            <div className="space-y-4 p-4 border rounded-lg bg-blue-50/50">
+              <div className="flex items-center gap-2 text-blue-800">
+                <Shield className="h-4 w-4" />
+                <span className="font-medium">Samtykke og personvern</span>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-start space-x-2">
+                  <Checkbox 
+                    id="terms" 
+                    checked={acceptedTerms}
+                    onCheckedChange={setAcceptedTerms}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
+                    Jeg aksepterer{' '}
+                    <Link href="/legal/tos" className="underline hover:text-primary" target="_blank">
+                      bruksvilkårene
+                    </Link>{' '}
+                    og{' '}
+                    <Link href="/legal/vilkar" className="underline hover:text-primary" target="_blank">
+                      kjøpsvilkårene
+                    </Link>{' '}
+                    <span className="text-red-600">*</span>
+                  </Label>
+                </div>
+
+                <div className="flex items-start space-x-2">
+                  <Checkbox 
+                    id="privacy" 
+                    checked={acceptedPrivacy}
+                    onCheckedChange={setAcceptedPrivacy}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="privacy" className="text-sm leading-relaxed cursor-pointer">
+                    Jeg har lest og forstått{' '}
+                    <Link href="/legal/personvern" className="underline hover:text-primary" target="_blank">
+                      personvernerklæringen
+                    </Link>{' '}
+                    og samtykker til behandling av mine personopplysninger{' '}
+                    <span className="text-red-600">*</span>
+                  </Label>
+                </div>
+
+                <div className="flex items-start space-x-2">
+                  <Checkbox 
+                    id="marketing" 
+                    checked={acceptedMarketing}
+                    onCheckedChange={setAcceptedMarketing}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="marketing" className="text-sm leading-relaxed cursor-pointer">
+                    Jeg ønsker å motta markedsføring og nyhetsbrev om forestillinger og arrangementer (valgfritt)
+                  </Label>
+                </div>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                <span className="text-red-600">*</span> Påkrevd for å opprette konto. 
+                Du kan når som helst endre disse innstillingene i din profil.
+              </p>
+            </div>
+
             <div>
-              <Button type="submit" className="w-full h-12" disabled={isLoading}>
+              <Button type="submit" className="w-full h-12" disabled={isLoading || !acceptedTerms || !acceptedPrivacy}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />

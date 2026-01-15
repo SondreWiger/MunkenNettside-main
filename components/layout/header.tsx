@@ -168,12 +168,6 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/billetter" className="flex items-center gap-2">
-                    <Ticket className="h-4 w-4" />
-                    Mine billetter
-                  </Link>
-                </DropdownMenuItem>
                 {isAdmin && (
                   <>
                     <DropdownMenuSeparator />

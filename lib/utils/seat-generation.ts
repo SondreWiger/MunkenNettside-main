@@ -47,7 +47,7 @@ export async function generateSeatsFromConfig(showId: string, supabaseClient?: a
   if (seatMapConfig.seats && Array.isArray(seatMapConfig.seats)) {
     console.log("Using SimpleSeatMap format, found", seatMapConfig.seats.length, "seats");
     
-    seatMapConfig.seats.forEach((seat: any) => {
+    seatMapConfig.seats.forEach((seat: any, index: number) => {
       if (seat.type !== 'inactive') {
         // Map seat types to database format - only basic types, no handicap features
         let status = 'available';
@@ -73,6 +73,11 @@ export async function generateSeatsFromConfig(showId: string, supabaseClient?: a
         const normalizedNumber = Number.isFinite(Number(seat.number)) ? Number(seat.number) : (seat.number ? parseInt(String(seat.number)) || 0 : 0)
 
         const key = `Sal::${normalizedRow}::${normalizedNumber}`
+        
+        if (index < 5) { // Debug first few seats
+          console.log(`Processing seat ${index}: row=${seat.row}->${normalizedRow}, number=${seat.number}->${normalizedNumber}, type=${seat.type}->${status}, key=${key}, exists=${existingKeys.has(key)}`);
+        }
+        
         // Only create if it doesn't already exist - preserve reserved/sold
         if (!existingKeys.has(key)) {
           seatsToCreate.push({
@@ -170,8 +175,28 @@ export async function generateSeatsFromConfig(showId: string, supabaseClient?: a
       throw new Error(`Failed to create seats: ${error.message || 'Unknown error'}`)
     }
     console.log(`Successfully created ${newSeats?.length || 0} seats`);
-    return { seats: newSeats || [], generated: true, count: newSeats?.length || 0 }
+    
+    // Fetch all seats for this show (existing + newly created)
+    const { data: allSeats } = await supabase
+      .from('seats')
+      .select('*')
+      .eq('show_id', showId)
+      .order('section')
+      .order('row')
+      .order('number')
+    
+    return { seats: allSeats || [], generated: true, count: allSeats?.length || 0 }
   }
 
-  return { seats: [], generated: false, count: 0 }
+  // No new seats to create, but return existing seats
+  const { data: existingSeats } = await supabase
+    .from('seats')
+    .select('*')
+    .eq('show_id', showId)
+    .order('section')
+    .order('row')
+    .order('number')
+    
+  console.log(`Found ${existingSeats?.length || 0} existing seats`);
+  return { seats: existingSeats || [], generated: false, count: existingSeats?.length || 0 }
 }

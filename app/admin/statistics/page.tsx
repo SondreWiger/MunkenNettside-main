@@ -177,138 +177,147 @@ export default async function AdminStatisticsPage() {
   }
 
   return (
-    <main className="container px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Statistikk</h1>
+    <main className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Statistikk</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Oversikt over salg, brukere og ytelse</p>
+        </div>
+        <Badge variant="outline" className="w-fit text-slate-500">
+          <TrendingUp className="h-3.5 w-3.5 mr-1.5" />
+          Siste 30 dager
+        </Badge>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Månedlig omsetning</CardTitle>
-            <CardDescription>Siste 30 dager (bokninger + opptak + kurs)</CardDescription>
+      {/* Revenue Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white border-0">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-blue-100">Total omsetning</CardDescription>
+            <CardTitle className="text-3xl font-bold text-white">{formatPrice(monthly.totalRevenue)}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatPrice(monthly.totalRevenue)}</div>
-            <div className="mt-3"><RevenueChartClient initialData={revenueTimeseries as any} /></div>
+            <div className="opacity-80"><RevenueChartClient initialData={revenueTimeseries as any} /></div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Bokninger</CardTitle>
-            <CardDescription>Inntekt fra billettsalg</CardDescription>
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardHeader className="pb-2">
+            <CardDescription>Billettsalg</CardDescription>
+            <CardTitle className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(monthly.bookingRevenue)}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatPrice(monthly.bookingRevenue)}</div>
-            <div className="mt-3"><RevenueChartClient initialData={revenueTimeseries as any} /></div>
+            <div className="text-xs text-slate-500">Fra forestillinger og shows</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Opptak</CardTitle>
-            <CardDescription>Inntekt fra video-salg</CardDescription>
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardHeader className="pb-2">
+            <CardDescription>Opptakssalg</CardDescription>
+            <CardTitle className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(monthly.purchasesRevenue)}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatPrice(monthly.purchasesRevenue)}</div>
-            <div className="mt-3"><RevenueChartClient initialData={revenueTimeseries as any} /></div>
+            <div className="text-xs text-slate-500">Fra video on-demand</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Kurs</CardTitle>
-            <CardDescription>Inntekt fra kurs</CardDescription>
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          <CardHeader className="pb-2">
+            <CardDescription>Kursinntekt</CardDescription>
+            <CardTitle className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(monthly.kursRevenue)}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatPrice(monthly.kursRevenue)}</div>
+            <div className="text-xs text-slate-500">Fra kurspåmeldinger</div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="mb-8 grid md:grid-cols-2 gap-4">
-        <Card>
+      {/* Growth & Enrollments */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle>Brukervekst siste 30 dager</CardTitle>
+            <CardTitle className="text-lg">Brukervekst</CardTitle>
+            <CardDescription>Nye brukere siste 30 dager</CardDescription>
           </CardHeader>
           <CardContent>
             {renderSparkline((stats as any).users.map((u: any) => 1))}
-            <div className="text-sm text-muted-foreground mt-2">Totalt brukere: {(stats as any).users.length}</div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-sm text-slate-500">Nye registreringer</span>
+              <span className="font-semibold text-slate-900 dark:text-white">{(stats as any).users.length}</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle>Påmeldinger</CardTitle>
-            <CardDescription>Kurs og ensemble påmeldinger</CardDescription>
+            <CardTitle className="text-lg">Påmeldinger</CardTitle>
+            <CardDescription>Kurs og ensemble</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4">
-              <div>
-                <div className="text-3xl font-bold">{kursEnrollCount}</div>
-                <div className="text-sm text-muted-foreground">Kurspåmeldinger</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20">
+                <div className="text-3xl font-bold text-green-700 dark:text-green-400">{kursEnrollCount}</div>
+                <div className="text-sm text-green-600 dark:text-green-500">Kurspåmeldinger</div>
               </div>
-              <div>
-                <div className="text-3xl font-bold">{ensembleEnrollCount}</div>
-                <div className="text-sm text-muted-foreground">Ensemblepåmeldinger</div>
+              <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                <div className="text-3xl font-bold text-purple-700 dark:text-purple-400">{ensembleEnrollCount}</div>
+                <div className="text-sm text-purple-600 dark:text-purple-500">Ensemblepåmeldinger</div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Mest fylte forestillinger</CardTitle>
-            <CardDescription>Toppliste basert på solgte seter</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TopShowsChartClient initialData={seatFill as any} />
-          </CardContent>
-        </Card>
-      </div>
+      {/* Top Shows */}
+      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+        <CardHeader>
+          <CardTitle className="text-lg">Mest fylte forestillinger</CardTitle>
+          <CardDescription>Rangert etter solgte seter</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TopShowsChartClient initialData={seatFill as any} />
+        </CardContent>
+      </Card>
 
-      <div className="mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Venue seat heatmaps</CardTitle>
-            <CardDescription>Aggregated seat heatmaps (densely sold seats) per venue</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {(heatmaps || []).map((v: any) => {
-                const positions = Object.entries(v.positions || {})
-                const totalOccurrences = positions.reduce((s: number, [, p]: any) => s + (p.total || 0), 0)
-                const top = positions
-                  .map(([k, p]: any) => ({ pos: k, sold: p.sold, total: p.total, rate: p.total ? p.sold / p.total : 0 }))
-                  .sort((a, b) => b.sold - a.sold)
-                  .slice(0, 20)
-                return (
-                  <div key={v.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">{v.name}</div>
-                      <div className="text-sm text-muted-foreground">Seat occurrences: {totalOccurrences}</div>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {top.map((t: any) => (
-                        <div key={t.pos} className="p-2 rounded-md flex flex-col items-center bg-gray-50">
-                          <div className="text-xs font-semibold">{t.pos.replace(/__/g, ' ')}</div>
-                          <div className="w-16 h-2 bg-gray-200 mt-1 rounded overflow-hidden">
-                            <div className="h-full bg-red-500" style={{ width: `${Math.round((t.rate || 0) * 100)}%` }} />
-                          </div>
-                          <div className="text-xs text-muted-foreground">{t.sold}/{t.total}</div>
-                        </div>
-                      ))}
-                    </div>
+      {/* Venue Heatmaps */}
+      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+        <CardHeader>
+          <CardTitle className="text-lg">Setepopularitet per lokale</CardTitle>
+          <CardDescription>Aggregert data over hvilke seter som selges mest</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {(heatmaps || []).map((v: any) => {
+              const positions = Object.entries(v.positions || {})
+              const totalOccurrences = positions.reduce((s: number, [, p]: any) => s + (p.total || 0), 0)
+              const top = positions
+                .map(([k, p]: any) => ({ pos: k, sold: p.sold, total: p.total, rate: p.total ? p.sold / p.total : 0 }))
+                .sort((a, b) => b.sold - a.sold)
+                .slice(0, 20)
+              return (
+                <div key={v.id} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium text-slate-900 dark:text-white">{v.name}</div>
+                    <div className="text-sm text-slate-500">{totalOccurrences} setebookinger</div>
                   </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2">
+                    {top.map((t: any) => (
+                      <div key={t.pos} className="p-2 rounded-lg flex flex-col items-center bg-slate-50 dark:bg-slate-800">
+                        <div className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate max-w-full">{t.pos.replace(/__/g, ' ')}</div>
+                        <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 mt-1 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-500 to-red-500 rounded-full" style={{ width: `${Math.round((t.rate || 0) * 100)}%` }} />
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">{t.sold}/{t.total}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
     </main>
   )

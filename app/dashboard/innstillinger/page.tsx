@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Save, LogOut, Copy, Check, User, Palette, Share2, Lock, Eye, Star, Plus, Trash2, X, CreditCard, Users, RefreshCw, Bell } from "lucide-react"
+import { ArrowLeft, Save, LogOut, Copy, Check, User, Palette, Share2, Lock, Eye, Star, Plus, Trash2, X, CreditCard, Users, RefreshCw, Bell, Download, Shield, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"

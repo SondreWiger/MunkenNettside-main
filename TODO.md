@@ -2,11 +2,40 @@ Yes.
 
 # Documentation expansion — TODO
 
+# Current Session (COMPLETED)
+- [x] Fixed mobile seat map UX - complete rewrite of unified-seat-booking.tsx with mobile-first design
+- [x] Added ensemble capacity settings (max_actors, waitlist_enabled, auto_accept_enabled)
+- [x] Added kurs capacity settings (waitlist_enabled, auto_accept_enabled)
+- [x] Created waitlist tables in SQL schema (ensemble_waitlist, kurs_waitlist)
+- [x] Reworked user management for scale (pagination, search, filtering, tabs)
+
 # Recent tasks (in-progress)
 - [x] Replace QR-first admin onboarding with email-only verification (send code via email)
 - [x] Disable QR verification endpoint and remove QR scanner from login flow
 - [x] Add `superadmin` role with appropriate server and RLS policy updates
 - [ ] Cleanup: consider removing QR columns/tables and QR email helpers if fully deprecated
+
+# Admin Panel Redesign (COMPLETED)
+- [x] Redesigned admin layout with grouped sidebar navigation
+- [x] Added 4 navigation groups: Oversikt, Innhold, Salg, System
+- [x] Mobile dropdown menu for admin navigation
+- [x] Redesigned admin dashboard with live data panels
+- [x] Compact stat cards in 5-column grid
+- [x] Recent bookings and upcoming shows panels
+- [x] Quick actions grid with 6 items
+- [x] Removed duplicate /admin/settings folder (kept /admin/innstillinger)
+
+# Admin Subpages UI/UX Overhaul (COMPLETED)
+- [x] /admin/bestillinger - Stats cards, improved search, better booking list cards
+- [x] /admin/ensembler - Card grid layout, stage colors, dropdown actions
+- [x] /admin/forestillinger - Date-based grouping, timeline-style cards
+- [x] /admin/rabattkoder - Usage progress bars, card grid, copy functionality
+- [x] /admin/venues - Icon cards, seat map status indicator
+- [x] /admin/brukere - Consistent header styling
+- [x] /admin/innstillinger - Section icons, grouped form layout
+- [x] /admin/kurs - Participant progress bars, level colors, card grid
+- [x] /admin/statistics - Revenue gradient card, enrollment stats cards
+- [x] /admin/scan - Added page header
 
 Goal: Cover the entire codebase with developer-facing documentation under `/use`.
 
