@@ -5,13 +5,15 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Eye, EyeOff, Loader2, Shield } from "lucide-react"
+import { Eye, EyeOff, Loader2, Shield, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+
+type SupabaseStatus = "checking" | "online" | "offline"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -23,10 +25,26 @@ export function LoginForm() {
   const [isCodeSent, setIsCodeSent] = useState(false)
   const [adminUuidInput, setAdminUuidInput] = useState('')
   const [adminCodeInput, setAdminCodeInput] = useState('')
+  const [supabaseStatus, setSupabaseStatus] = useState<SupabaseStatus>("checking")
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/dashboard"
   const supabase = getSupabaseBrowserClient()
   const adminVerificationRequired = searchParams.get('admin_verification_required') === '1'
+
+  // Check Supabase health on mount
+  useEffect(() => {
+    const checkSupabaseHealth = async () => {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+        if (!url) { setSupabaseStatus("offline"); return }
+        const res = await fetch(`${url}/auth/v1/health`, { method: "GET", signal: AbortSignal.timeout(5000) })
+        setSupabaseStatus(res.ok ? "online" : "offline")
+      } catch {
+        setSupabaseStatus("offline")
+      }
+    }
+    checkSupabaseHealth()
+  }, [])
 
   // Check if already authenticated and requires admin verification on mount
   useEffect(() => {
@@ -54,6 +72,12 @@ export function LoginForm() {
     setError(null)
     setIsLoading(true)
 
+    if (supabaseStatus === "offline") {
+      setError("Påloggingstjenesten er utilgjengelig. Vennligst prøv igjen senere.")
+      setIsLoading(false)
+      return
+    }
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -63,6 +87,13 @@ export function LoginForm() {
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           setError("Feil e-post eller passord. Vennligst prøv igjen.")
+        } else if (
+          error.message.toLowerCase().includes("fetch") ||
+          error.message.toLowerCase().includes("network") ||
+          error.message.toLowerCase().includes("failed to fetch")
+        ) {
+          setSupabaseStatus("offline")
+          setError("Påloggingstjenesten er utilgjengelig. Vennligst prøv igjen senere.")
         } else {
           setError(error.message)
         }
@@ -95,8 +126,14 @@ export function LoginForm() {
       }
 
       window.location.href = redirectTo
-    } catch {
-      setError("Noe gikk galt. Vennligst prøv igjen.")
+    } catch (err) {
+      const message = err instanceof Error ? err.message.toLowerCase() : ""
+      if (message.includes("fetch") || message.includes("network") || message.includes("failed")) {
+        setSupabaseStatus("offline")
+        setError("Påloggingstjenesten er utilgjengelig. Vennligst prøv igjen senere.")
+      } else {
+        setError("Noe gikk galt. Vennligst prøv igjen.")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -122,6 +159,15 @@ export function LoginForm() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {supabaseStatus === "offline" && (
+              <Alert variant="destructive">
+                <WifiOff className="h-4 w-4" />
+                <AlertDescription>
+                  Påloggingstjenesten er utilgjengelig akkurat nå. Sjekk internettforbindelsen din eller prøv igjen om litt.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -173,12 +219,19 @@ export function LoginForm() {
             </div>
 
             <div>
-              <Button type="submit" className="w-full h-12" disabled={isLoading}>
+              <Button type="submit" className="w-full h-12" disabled={isLoading || supabaseStatus === "offline"}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Logger inn...
                   </>
+                ) : supabaseStatus === "checking" ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Kobler til...
+                  </>
+                ) : supabaseStatus === "offline" ? (
+                  "Tjenesten utilgjengelig"
                 ) : (
                   "Logg inn"
                 )}
