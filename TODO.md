@@ -1,5 +1,13 @@
 Yes.
 
+# SQL Migration Consolidation (COMPLETED)
+- [x] Removed duplicate second half from 000-complete-setup.sql (was ~3785 lines, now ~2166 lines)
+- [x] Added missing admin_uuid_expires_at column to users table
+- [x] Added missing max_actors, waitlist_enabled, auto_accept_enabled columns to ensembles
+- [x] Added RLS policies and trigger for show_attendances table
+- [x] Added physical venue seat map update (235 seats, rows 1-10)
+- Result: scripts/000-complete-setup.sql is now the single migration file for full platform setup
+
 # Documentation expansion — TODO
 
 # Critical Fixes Completed (Jan 15, 2026)
