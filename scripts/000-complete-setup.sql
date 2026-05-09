@@ -161,39 +161,10 @@ CREATE TABLE IF NOT EXISTS public.admin_device_registrations (
 
 CREATE INDEX IF NOT EXISTS idx_admin_device_registrations_token ON public.admin_device_registrations(token);
 
--- Add archive flags to ensembles and kurs so they can be shown in archive
+-- Add archive flag to ensembles so they can be shown in archive
 ALTER TABLE IF EXISTS public.ensembles
   ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_ensembles_archived ON public.ensembles(archived);
-
-ALTER TABLE IF EXISTS public.kurs
-  ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
-CREATE INDEX IF NOT EXISTS idx_kurs_archived ON public.kurs(archived);
-
--- Link kurs to an actor profile (optional) so we can explicitly associate an instructor
-ALTER TABLE IF EXISTS public.kurs
-  ADD COLUMN IF NOT EXISTS instructor_actor_id UUID REFERENCES public.actors(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_kurs_instructor_actor_id ON public.kurs(instructor_actor_id);
-
--- =============================================
--- BACKFILL: attempt to populate instructor_actor_id for existing kurs
--- This performs an exact, case-insensitive match between `actors.name` and `kurs.director`.
--- It is intentionally conservative: only updates rows where `instructor_actor_id` IS NULL.
--- Review the updates before running in production. If you prefer manual mapping, skip this block.
--- To run manually: wrap in a transaction or run selectively in staging first.
-DO $$
-BEGIN
-  -- Update kurs where director matches an actor's name (case-insensitive exact match)
-  UPDATE public.kurs k
-  SET instructor_actor_id = a.id
-  FROM public.actors a
-  WHERE k.instructor_actor_id IS NULL
-    AND a.name IS NOT NULL
-    AND k.director IS NOT NULL
-    AND lower(trim(a.name)) = lower(trim(k.director));
-
-  -- Optionally, you can log number of rows updated (client-side). This block leaves no explicit raises.
-END$$;
 
 
 -- =============================================
@@ -553,6 +524,27 @@ CREATE TABLE IF NOT EXISTS public.kurs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add archive flag and instructor link to kurs (absorbed from patch migrations)
+ALTER TABLE public.kurs
+  ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_kurs_archived ON public.kurs(archived);
+
+ALTER TABLE public.kurs
+  ADD COLUMN IF NOT EXISTS instructor_actor_id UUID REFERENCES public.actors(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_kurs_instructor_actor_id ON public.kurs(instructor_actor_id);
+
+-- Backfill: link instructor_actor_id from actors.name matching kurs.director
+DO $$
+BEGIN
+  UPDATE public.kurs k
+  SET instructor_actor_id = a.id
+  FROM public.actors a
+  WHERE k.instructor_actor_id IS NULL
+    AND a.name IS NOT NULL
+    AND k.director IS NOT NULL
+    AND lower(trim(a.name)) = lower(trim(k.director));
+END$$;
 
 
 -- =============================================
